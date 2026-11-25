@@ -46,16 +46,30 @@ class SimulacionParticulas {
   // Punto 2: magnitudes globales ----------------------------------------------
 
   /** La suma de las energías cinéticas, media masa por velocidad al cuadrado. */
-  def energiaSecuencial(s: Sistema): Double = ???
+  def energiaSecuencial(s: Sistema): Double = {
+    val energias = s.map(particula => 0.5 * particula.masa * particula.vel.norma * particula.vel.norma)
+    energias.sum
+  }
 
   /** La suma de las masas. */
-  def masaTotal(s: Sistema): Double = ???
+  def masaTotal(s: Sistema): Double = {
+    val masas = s.map(particula => particula.masa)
+    masas.sum
+  }
 
   /**
    * La suma de las posiciones ponderadas por la masa, dividida entre la masa
    * total. Sin masa, el origen.
    */
-  def centroDeMasaSecuencial(s: Sistema): Vector2 = ???
+  def centroDeMasaSecuencial(s: Sistema): Vector2 = {
+    val masa = masaTotal(s)
+    if (masa == 0.0) Vector2(0.0, 0.0)
+    else {
+      val ponderadas = s.map(particula => particula.pos * particula.masa)
+      val suma = ponderadas.foldLeft(Vector2(0.0, 0.0))((acumulado, v) => acumulado + v)
+      Vector2(suma.x / masa, suma.y / masa)
+    }
+  }
 
   // Punto 3: las mismas magnitudes en paralelo --------------------------------
 
@@ -71,13 +85,21 @@ class SimulacionParticulas {
   // Punto 4: trabajo y profundidad --------------------------------------------
 
   /** El número total de operaciones, una por partícula. */
-  def trabajo(n: Int): Int = ???
+  def trabajo(n: Int): Int = n
 
   /** Cuántas veces se parte a la mitad, más el tramo que queda sin partir. */
-  def profundidad(n: Int, umbral: Int): Int = ???
+  def profundidad(n: Int, umbral: Int): Int = {
+    val limite = math.max(umbral, 1)
+    if (n <= limite) trabajo(n)
+    else 1 + profundidad((n + 1) / 2, limite)
+  }
 
   /** La profundidad más el trabajo entre p procesadores. */
-  def tiempoEstimado(n: Int, p: Int, umbral: Int): Double = ???
+  def tiempoEstimado(n: Int, p: Int, umbral: Int): Double = {
+    val prof = profundidad(n, umbral)
+    val repartido = trabajo(n).toDouble / p
+    prof + repartido
+  }
 
   // Punto 5: medir la aceleración ---------------------------------------------
 
