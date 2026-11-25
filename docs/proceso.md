@@ -129,3 +129,13 @@ sequenceDiagram
 ```
 
 
+// PARTICIPANTE 1
+
+
+// PARTICIPANTE 2
+
+
+// PARTICIPANTE 3
+
+
+// PARTICIPANTE 4

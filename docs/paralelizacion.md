@@ -197,3 +197,5 @@ Pasar de 16 a 32 núcleos agregaría 1,4 a la aceleración, menos de lo que se
 ganó entre 4 y 8. En este cálculo esa décima parte está en partir el arreglo y
 combinar los resultados, y en el acceso a una memoria que comparten los
 dieciséis núcleos.
+
+// ENCARGADO DE INFORMA PARALELIZACION ES SANTIAGO VELANDIA
