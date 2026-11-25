@@ -207,4 +207,49 @@ class SimulacionParticulasTest extends AnyFunSuite {
     val candidatos = List(16, 128, 1024)
     assert(candidatos.contains(umbralConveniente(grande, 0.5, candidatos)))
   }
+  // Punto 1  ------------------------------------------------------------------
+
+  // Punto 2  ------------------------------------------------------------------
+  test("propia energiaSecuencial: suma la energía de partículas con masas distintas") {
+    val dos: Sistema = Array(
+      Particula(Vector2(0, 0), Vector2(3, 4), 1.0),   // 0.5 * 1 * 25 = 12.5
+      Particula(Vector2(1, 1), Vector2(0, -1), 4.0))  // 0.5 * 4 * 1  = 2.0
+    assert(cerca(energiaSecuencial(dos), 14.5))
+  }
+
+  test("propia energiaSecuencial: el sentido de la velocidad no cambia la energía") {
+    val adelante: Sistema = Array(Particula(Vector2(0, 0), Vector2(3, 4), 2.0))
+    val atras: Sistema = Array(Particula(Vector2(0, 0), Vector2(-3, -4), 2.0))
+    assert(cerca(energiaSecuencial(adelante), 25.0))
+    assert(cerca(energiaSecuencial(atras), 25.0))
+  }
+
+  test("propia masaTotal: suma tres masas con decimales") {
+    val tresMasas: Sistema = Array(
+      Particula(Vector2(0, 0), Vector2(0, 0), 1.5),
+      Particula(Vector2(1, 0), Vector2(0, 0), 2.5),
+      Particula(Vector2(2, 0), Vector2(0, 0), 6.0))
+    assert(cerca(masaTotal(tresMasas), 10.0))
+  }
+
+  test("propia centroDeMasaSecuencial: tres masas distintas en dos dimensiones") {
+    val tresMasas: Sistema = Array(
+      Particula(Vector2(0, 0), Vector2(0, 0), 1.0),
+      Particula(Vector2(6, 0), Vector2(0, 0), 2.0),
+      Particula(Vector2(0, 3), Vector2(0, 0), 3.0))
+    // x = (0*1 + 6*2 + 0*3) / 6 = 2.0    y = (0*1 + 0*2 + 3*3) / 6 = 1.5
+    assert(cerca(centroDeMasaSecuencial(tresMasas), Vector2(2.0, 1.5)))
+  }
+
+  test("propia centroDeMasaSecuencial: con partículas de masa cero el centro es el origen") {
+    val sinMasa: Sistema = Array(
+      Particula(Vector2(5, 5), Vector2(1, 1), 0.0),
+      Particula(Vector2(-2, 7), Vector2(0, 0), 0.0))
+    assert(centroDeMasaSecuencial(sinMasa) == Vector2(0, 0))
+  }
+  // Punto 3  ------------------------------------------------------------------
+
+  // Punto 4  ------------------------------------------------------------------
+  
+
 }
