@@ -250,6 +250,31 @@ class SimulacionParticulasTest extends AnyFunSuite {
   // Punto 3  ------------------------------------------------------------------
 
   // Punto 4  ------------------------------------------------------------------
-  
+  test("propia profundidad: mil partículas con umbral 250") {
+    // 1000 -> 500 -> 250: dos particiones y un tramo de 250
+    assert(profundidad(1000, 250) == 252)
+  }
 
-}
+  test("propia profundidad: con tamaño impar sigue la mitad mayor") {
+    // 100 -> 50 -> 25 -> 13 -> 7 -> 4 -> 2: seis particiones y un tramo de 2
+    assert(profundidad(100, 3) == 8)
+  }
+
+  test("propia profundidad: si el umbral cubre todo no se parte, y sin partículas no hay trabajo") {
+    assert(profundidad(10, 50) == 10)
+    assert(profundidad(0, 5) == 0)
+  }
+
+  test("propia tiempoEstimado: profundidad más trabajo entre procesadores") {
+    assert(cerca(tiempoEstimado(1000, 8, 250), 377.0))  // 252 + 1000/8
+    assert(cerca(tiempoEstimado(100, 4, 3), 33.0))      // 8 + 100/4
+  }
+
+  test("propia tiempoEstimado: agregar procesadores nunca baja de la profundidad") {
+    val piso = profundidad(1000, 250).toDouble
+    assert(List(1, 2, 16, 1000, 1000000).forall(procesadores =>
+      tiempoEstimado(1000, procesadores, 250) >= piso))
+  }
+  // Punto 5  ------------------------------------------------------------------
+
+  }
