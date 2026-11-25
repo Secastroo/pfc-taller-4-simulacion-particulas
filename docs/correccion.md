@@ -277,3 +277,16 @@ s_0 = (a_1, \text{List}(a_2, \ldots, a_k)) \implies a_1 = f(\text{List}(a_1))
 $k$ iteraciones, $l = \text{List}()$.
 
 Esto implica que $P_f(L) == \text{maxAux}(L.\text{head}, L.\text{tail}) == f(L)$
+
+
+
+// PARTICIPANTE 1
+
+
+// PARTICIPANTE 2
+
+
+// PARTICIPANTE 3
+
+
+// PARTICIPANTE 4
