@@ -18,20 +18,31 @@ class SimulacionParticulas {
   // Punto 1: un paso de la simulación -----------------------------------------
 
   /** La posición nueva es la anterior más la velocidad por dt. */
-  def mover(p: Particula, dt: Double): Particula = ???
+  def mover(p: Particula, dt: Double): Particula =
+    Particula(p.pos + p.vel * dt, p.vel, p.masa)
 
   /** Avanza todo el sistema un paso de tiempo dt. */
-  def pasoSecuencial(s: Sistema, dt: Double): Sistema = ???
+  def pasoSecuencial(s: Sistema, dt: Double): Sistema =
+    // Es el segmento que cubre todo el sistema: de esta manera la versión secuencial y la paralela hacen el mismo trabajo, de la misma forma, en cada tramo.
+    pasoSegmento(s, dt, 0, s.length)
 
   /** Avanza solo el tramo entre `desde` incluido y `hasta` excluido. */
-  def pasoSegmento(s: Sistema, dt: Double, desde: Int, hasta: Int): Sistema = ???
+  def pasoSegmento(s: Sistema, dt: Double, desde: Int, hasta: Int): Sistema = {
+    // El tramo se recorta a los límites del arreglo, y si queda al revés o
+    // vacío, el resultado es un sistema vacío.
+    val inicio = math.max(desde, 0)
+    val fin = math.min(hasta, s.length)
+    Array.tabulate(math.max(fin - inicio, 0))(i => mover(s(inicio + i), dt))
+  }
 
   /**
    * Parte el sistema por la mitad con `parallel` mientras el tramo tenga más
    * elementos que el umbral, y por debajo de esa cifra resuelve en secuencial.
    */
-  def pasoParalelo(s: Sistema, dt: Double, umbral: Int): Sistema = ???
-
+  def pasoParalelo(s: Sistema, dt: Double, umbral: Int): Sistema = {
+    // Con un umbral menor que uno, un tramo de un solo elemento se partiría
+    // para siempre: su mitad derecha sería el mismo tramo.
+    val limite = math.max(umbral, 1)
   // Punto 2: magnitudes globales ----------------------------------------------
 
   /** La suma de las energías cinéticas, media masa por velocidad al cuadrado. */
@@ -87,3 +98,4 @@ class SimulacionParticulas {
    */
   def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int = ???
 }
+
