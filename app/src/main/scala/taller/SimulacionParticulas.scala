@@ -40,21 +40,24 @@ class SimulacionParticulas {
    * elementos que el umbral, y por debajo de esa cifra resuelve en secuencial.
    */
   def pasoParalelo(s: Sistema, dt: Double, umbral: Int): Sistema = {
-    // Con un umbral menor que uno, un tramo de un solo elemento se partiría
-    // para siempre: su mitad derecha sería el mismo tramo.
     val limite = math.max(umbral, 1)
 
-    def repartir(desde: Int, hasta: Int): Sistema =
-      if (hasta - desde <= limite) pasoSegmento(s, dt, desde, hasta)
-      else {
-        // Se parte por la mitad: la izquierda queda con el piso de la mitad y la
-        // derecha con el resto, así que ningún elemento queda fuera ni repetido.
-        val medio = desde + (hasta - desde) / 2
-        val (izquierda, derecha) = parallel(repartir(desde, medio), repartir(medio, hasta))
-        izquierda ++ derecha
-      }
+    // Si no hay que dividir, ejecuta directamente el mismo segmento
+    // que utiliza la versión secuencial.
+    if (s.length <= limite) {
+      pasoSegmento(s, dt, 0, s.length)
+    } else {
+      def repartir(desde: Int, hasta: Int): Sistema =
+        if (hasta - desde <= limite) pasoSegmento(s, dt, desde, hasta)
+        else {
+          val medio = desde + (hasta - desde) / 2
+          val (izquierda, derecha) =
+            parallel(repartir(desde, medio), repartir(medio, hasta))
+          izquierda ++ derecha
+        }
 
-    repartir(0, s.length)
+      repartir(0, s.length)
+    }
   }
   // Punto 2: magnitudes globales ----------------------------------------------
 
@@ -161,12 +164,20 @@ class SimulacionParticulas {
   }
 
   /** El cociente entre el tiempo secuencial y el paralelo. */
-  def aceleracion(tSecuencial: Double, tParalelo: Double): Double = ???
+  def aceleracion(tSecuencial: Double, tParalelo: Double): Double ={
+    tSecuencial/tParalelo
+  }
 
   /**
    * El umbral que menos tarda de una lista de candidatos. Con la lista vacía,
    * el tamaño del sistema, que equivale a no repartir.
    */
-  def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int = ???
+  def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int = {
+    if (umbrales.isEmpty) s.length
+    else {
+      val tiempos = umbrales.map(u => (medir(5)(pasoParalelo(s,dt,u)),(u)))
+      tiempos.minBy(_._1)._2
+    }
+  }
 }
 
