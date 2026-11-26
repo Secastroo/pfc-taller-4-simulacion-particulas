@@ -43,6 +43,19 @@ class SimulacionParticulas {
     // Con un umbral menor que uno, un tramo de un solo elemento se partiría
     // para siempre: su mitad derecha sería el mismo tramo.
     val limite = math.max(umbral, 1)
+
+    def repartir(desde: Int, hasta: Int): Sistema =
+      if (hasta - desde <= limite) pasoSegmento(s, dt, desde, hasta)
+      else {
+        // Se parte por la mitad: la izquierda queda con el piso de la mitad y la
+        // derecha con el resto, así que ningún elemento queda fuera ni repetido.
+        val medio = desde + (hasta - desde) / 2
+        val (izquierda, derecha) = parallel(repartir(desde, medio), repartir(medio, hasta))
+        izquierda ++ derecha
+      }
+
+    repartir(0, s.length)
+  }
   // Punto 2: magnitudes globales ----------------------------------------------
 
   /** La suma de las energías cinéticas, media masa por velocidad al cuadrado. */

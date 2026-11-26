@@ -16,6 +16,9 @@ class SimulacionParticulasTest extends AnyFunSuite {
   val sim = new SimulacionParticulas()
   import sim._
 
+  def sistemaPA(n: Int): Sistema = Array.tabulate(n)(i =>
+    Particula(Vector2(i, 2.0 * i), Vector2(i + 1.0, 0.5 * i), 1.0 + i))
+  
   val eps = 1e-9
 
   val p = Particula(Vector2(0, 0), Vector2(1, 2), 1.0)
@@ -209,6 +212,42 @@ class SimulacionParticulasTest extends AnyFunSuite {
   }
   // Punto 1  ------------------------------------------------------------------
 
+  test("propia pasoSegmento: avanza solo desde incluido hasta excluido") {
+    val sistema = sistemaPA(6)
+    val tramo = pasoSegmento(sistema, 2.0, 2, 5)
+    assert(tramo.map(q => q.pos).toList ==
+      List(Vector2(8.0, 6.0), Vector2(11.0, 9.0), Vector2(14.0, 12.0)))
+    assert(tramo.map(q => q.masa).toList == List(3.0, 4.0, 5.0))
+    assert(tramo.map(q => q.vel).toList == sistema.slice(2, 5).map(q => q.vel).toList)
+  }
+
+  test("propia pasoParalelo: da lo mismo que pasoSecuencial con umbrales distintos") {
+    val sistema = sistemaPA(100)
+    val esperado = pasoSecuencial(sistema, 0.25).toList
+    val umbrales = List(1, 2, 3, 10, 33, 99, 100, 101, 1000)
+    assert(umbrales.forall(u => pasoParalelo(sistema, 0.25, u).toList == esperado))
+  }
+
+  test("propia pasoParalelo: el sistema vacío da un sistema vacío con cualquier umbral") {
+    assert(List(0, 1, 5, 100).forall(u => pasoParalelo(vacio, 1.5, u).isEmpty))
+    assert(pasoSegmento(vacio, 1.5, 0, 0).isEmpty)
+  }
+
+  test("propia pasoParalelo: con dt cero el sistema queda igual con cualquier umbral") {
+    val sistema = sistemaPA(37)
+    assert(List(1, 4, 8, 50).forall(u =>
+      pasoParalelo(sistema, 0.0, u).toList == sistema.toList))
+  }
+
+  test("propia pasoParalelo: con tamaños impares no pierde ni repite ninguna partícula") {
+    val tamanios = List(1, 3, 5, 7, 9, 15, 31, 101)
+    assert(tamanios.forall { n =>
+      val sistema = sistemaPA(n)
+      val resultado = pasoParalelo(sistema, 2.0, 2)
+      // La masa de cada partícula es 1 más su posición: sirve para reconocerla.
+      resultado.map(q => q.masa).toList == (1 to n).map(i => i.toDouble).toList &&
+        resultado.toList == pasoSecuencial(sistema, 2.0).toList
+    })
   // Punto 2  ------------------------------------------------------------------
   test("propia energiaSecuencial: suma la energía de partículas con masas distintas") {
     val dos: Sistema = Array(
@@ -277,4 +316,4 @@ class SimulacionParticulasTest extends AnyFunSuite {
   }
   // Punto 5  ------------------------------------------------------------------
 
-  }
+
