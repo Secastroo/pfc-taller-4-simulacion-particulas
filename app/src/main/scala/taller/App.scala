@@ -29,6 +29,13 @@ object App {
         )
       )
 
+    // Pide al recolector de basura que limpie antes de cada medición, para que
+    // una pausa de la JVM no caiga en medio del tiempo que se está midiendo.
+    def medirLimpio[A](repeticiones: Int)(cuerpo: => A): Double = {
+      System.gc()
+      medir(repeticiones)(cuerpo)
+    }
+
     def mediana(muestras: Seq[Double]): Double =
       muestras.sorted.apply(muestras.length / 2)
 
@@ -40,12 +47,12 @@ object App {
     def medirControl(s: Sistema, dt: Double): (Double, Double) = {
       val pares = Vector.tabulate(repeticiones) { i =>
         if (i % 2 == 0) {
-          val ts = medir(1)(pasoSecuencial(s, dt))
-          val tp = medir(1)(pasoParalelo(s, dt, s.length))
+          val ts = medirLimpio(1)(pasoSecuencial(s, dt))
+          val tp = medirLimpio(1)(pasoParalelo(s, dt, s.length))
           (ts, tp)
         } else {
-          val tp = medir(1)(pasoParalelo(s, dt, s.length))
-          val ts = medir(1)(pasoSecuencial(s, dt))
+          val tp = medirLimpio(1)(pasoParalelo(s, dt, s.length))
+          val ts = medirLimpio(1)(pasoSecuencial(s, dt))
           (ts, tp)
         }
       }
@@ -89,7 +96,7 @@ object App {
         // en otro momento y hacer la comparación menos consistente.
         val tParalelo =
           if (umbral == n) tControl
-          else medir(repeticiones)(pasoParalelo(sistema, dt, umbral))
+          else medirLimpio(repeticiones)(pasoParalelo(sistema, dt, umbral))
 
         val medida = aceleracion(tSecuencial, tParalelo)
         val estimada =
@@ -106,6 +113,7 @@ object App {
         aceleraciones.maxBy(_._2)
 
       // Esta función vuelve a medir los candidatos de forma independiente.
+      System.gc()
       val conveniente = umbralConveniente(sistema, dt, umbrales)
 
       println()
