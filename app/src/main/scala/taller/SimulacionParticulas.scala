@@ -90,13 +90,49 @@ class SimulacionParticulas {
   // Punto 3: las mismas magnitudes en paralelo --------------------------------
 
   /** La energía del sistema, repartida con el mismo umbral del punto 1. */
-  def energiaParalela(s: Sistema, umbral: Int): Double = ???
+  def energiaParalela(s: Sistema, umbral: Int): Double = {
+    def energiaTramo(desde: Int, hasta: Int): Double = {
+      @annotation.tailrec
+      def acumular(i: Int, acc: Double): Double =
+        if (i >= hasta) acc
+        else {
+          val v = s(i).vel.norma
+          acumular(i + 1, acc + 0.5 * s(i).masa * v * v)
+        }
+
+      if (hasta - desde > umbral && hasta - desde > 1) {
+        val medio = desde + (hasta - desde) / 2
+        val (izq, der) = parallel(energiaTramo(desde, medio), energiaTramo(medio, hasta))
+        izq + der
+      } else acumular(desde, 0.0)
+    }
+
+    energiaTramo(0, s.length)
+  }
 
   /**
    * El centro de masa, repartido. Promediar los promedios de cada mitad da
    * otra cosa cuando las dos mitades no pesan igual.
    */
-  def centroDeMasaParalelo(s: Sistema, umbral: Int): Vector2 = ???
+  def centroDeMasaParalelo(s: Sistema, umbral: Int): Vector2 = {
+    def parcial(desde: Int, hasta: Int): (Vector2, Double) = {
+      @annotation.tailrec
+      def acumular(i: Int, sumaPos: Vector2, masa: Double): (Vector2, Double) =
+        if (i >= hasta) (sumaPos, masa)
+        else acumular(i + 1, sumaPos + s(i).pos * s(i).masa, masa + s(i).masa)
+
+      if (hasta - desde > umbral && hasta - desde > 1) {
+        val medio = desde + (hasta - desde) / 2
+        val ((sumaIzq, masaIzq), (sumaDer, masaDer)) =
+          parallel(parcial(desde, medio), parcial(medio, hasta))
+        (sumaIzq + sumaDer, masaIzq + masaDer)
+      } else acumular(desde, Vector2(0, 0), 0.0)
+    }
+
+    val (sumaPonderada, masa) = parcial(0, s.length)
+    if (masa == 0.0) Vector2(0, 0) else sumaPonderada * (1.0 / masa)
+  }
+
 
   // Punto 4: trabajo y profundidad --------------------------------------------
 

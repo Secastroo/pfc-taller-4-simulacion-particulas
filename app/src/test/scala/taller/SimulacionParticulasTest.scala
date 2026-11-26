@@ -254,73 +254,107 @@ class SimulacionParticulasTest extends AnyFunSuite {
         resultado.toList == pasoSecuencial(sistema, 2.0).toList
     })
   }
-    // Punto 2  ------------------------------------------------------------------
-    test("propia energiaSecuencial: suma la energía de partículas con masas distintas") {
-      val dos: Sistema = Array(
-        Particula(Vector2(0, 0), Vector2(3, 4), 1.0), // 0.5 * 1 * 25 = 12.5
-        Particula(Vector2(1, 1), Vector2(0, -1), 4.0)) // 0.5 * 4 * 1  = 2.0
-      assert(cerca(energiaSecuencial(dos), 14.5))
-    }
+  // Punto 2  ------------------------------------------------------------------
+  test("propia energiaSecuencial: suma la energía de partículas con masas distintas") {
+    val dos: Sistema = Array(
+      Particula(Vector2(0, 0), Vector2(3, 4), 1.0), // 0.5 * 1 * 25 = 12.5
+      Particula(Vector2(1, 1), Vector2(0, -1), 4.0)) // 0.5 * 4 * 1  = 2.0
+    assert(cerca(energiaSecuencial(dos), 14.5))
+  }
 
-    test("propia energiaSecuencial: el sentido de la velocidad no cambia la energía") {
-      val adelante: Sistema = Array(Particula(Vector2(0, 0), Vector2(3, 4), 2.0))
-      val atras: Sistema = Array(Particula(Vector2(0, 0), Vector2(-3, -4), 2.0))
-      assert(cerca(energiaSecuencial(adelante), 25.0))
-      assert(cerca(energiaSecuencial(atras), 25.0))
-    }
+  test("propia energiaSecuencial: el sentido de la velocidad no cambia la energía") {
+    val adelante: Sistema = Array(Particula(Vector2(0, 0), Vector2(3, 4), 2.0))
+    val atras: Sistema = Array(Particula(Vector2(0, 0), Vector2(-3, -4), 2.0))
+    assert(cerca(energiaSecuencial(adelante), 25.0))
+    assert(cerca(energiaSecuencial(atras), 25.0))
+  }
 
-    test("propia masaTotal: suma tres masas con decimales") {
-      val tresMasas: Sistema = Array(
-        Particula(Vector2(0, 0), Vector2(0, 0), 1.5),
-        Particula(Vector2(1, 0), Vector2(0, 0), 2.5),
-        Particula(Vector2(2, 0), Vector2(0, 0), 6.0))
-      assert(cerca(masaTotal(tresMasas), 10.0))
-    }
+  test("propia masaTotal: suma tres masas con decimales") {
+    val tresMasas: Sistema = Array(
+      Particula(Vector2(0, 0), Vector2(0, 0), 1.5),
+      Particula(Vector2(1, 0), Vector2(0, 0), 2.5),
+      Particula(Vector2(2, 0), Vector2(0, 0), 6.0))
+    assert(cerca(masaTotal(tresMasas), 10.0))
+  }
 
-    test("propia centroDeMasaSecuencial: tres masas distintas en dos dimensiones") {
-      val tresMasas: Sistema = Array(
-        Particula(Vector2(0, 0), Vector2(0, 0), 1.0),
-        Particula(Vector2(6, 0), Vector2(0, 0), 2.0),
-        Particula(Vector2(0, 3), Vector2(0, 0), 3.0))
-      // x = (0*1 + 6*2 + 0*3) / 6 = 2.0    y = (0*1 + 0*2 + 3*3) / 6 = 1.5
-      assert(cerca(centroDeMasaSecuencial(tresMasas), Vector2(2.0, 1.5)))
-    }
+  test("propia centroDeMasaSecuencial: tres masas distintas en dos dimensiones") {
+    val tresMasas: Sistema = Array(
+      Particula(Vector2(0, 0), Vector2(0, 0), 1.0),
+      Particula(Vector2(6, 0), Vector2(0, 0), 2.0),
+      Particula(Vector2(0, 3), Vector2(0, 0), 3.0))
+    // x = (0*1 + 6*2 + 0*3) / 6 = 2.0    y = (0*1 + 0*2 + 3*3) / 6 = 1.5
+    assert(cerca(centroDeMasaSecuencial(tresMasas), Vector2(2.0, 1.5)))
+  }
 
-    test("propia centroDeMasaSecuencial: con partículas de masa cero el centro es el origen") {
-      val sinMasa: Sistema = Array(
-        Particula(Vector2(5, 5), Vector2(1, 1), 0.0),
-        Particula(Vector2(-2, 7), Vector2(0, 0), 0.0))
-      assert(centroDeMasaSecuencial(sinMasa) == Vector2(0, 0))
-    }
-    // Punto 3  ------------------------------------------------------------------
+  test("propia centroDeMasaSecuencial: con partículas de masa cero el centro es el origen") {
+    val sinMasa: Sistema = Array(
+      Particula(Vector2(5, 5), Vector2(1, 1), 0.0),
+      Particula(Vector2(-2, 7), Vector2(0, 0), 0.0))
+    assert(centroDeMasaSecuencial(sinMasa) == Vector2(0, 0))
+  }
+ // Punto 3  ------------------------------------------------------------------
+  test("energiaParalela: coincide con la secuencial en el ejemplo") {
+    assert(cerca(energiaParalela(s, 1), 25.0))
+  }
 
-    // Punto 4  ------------------------------------------------------------------
-    test("propia profundidad: mil partículas con umbral 250") {
-      // 1000 -> 500 -> 250: dos particiones y un tramo de 250
-      assert(profundidad(1000, 250) == 252)
-    }
+  test("energiaParalela: coincide con la secuencial para varios umbrales") {
+    val esperado = energiaSecuencial(grande)
+    assert(List(1, 3, 64, 999, 5000).forall(u => cerca(energiaParalela(grande, u), esperado)))
+  }
 
-    test("propia profundidad: con tamaño impar sigue la mitad mayor") {
-      // 100 -> 50 -> 25 -> 13 -> 7 -> 4 -> 2: seis particiones y un tramo de 2
-      assert(profundidad(100, 3) == 8)
-    }
+  test("energiaParalela: sobre el sistema vacío da cero") {
+    assert(energiaParalela(vacio, 1) == 0.0)
+  }
 
-    test("propia profundidad: si el umbral cubre todo no se parte, y sin partículas no hay trabajo") {
-      assert(profundidad(10, 50) == 10)
-      assert(profundidad(0, 5) == 0)
-    }
+  test("centroDeMasaParalelo: coincide con el secuencial en el ejemplo") {
+    assert(cerca(centroDeMasaParalelo(s, 1), Vector2(2.0, 0.0)))
+  }
 
-    test("propia tiempoEstimado: profundidad más trabajo entre procesadores") {
-      assert(cerca(tiempoEstimado(1000, 8, 250), 377.0)) // 252 + 1000/8
-      assert(cerca(tiempoEstimado(100, 4, 3), 33.0)) // 8 + 100/4
-    }
+  test("centroDeMasaParalelo: coincide con el secuencial para varios umbrales") {
+    val esperado = centroDeMasaSecuencial(grande)
+    assert(List(1, 3, 64, 999, 5000).forall(u => cerca(centroDeMasaParalelo(grande, u), esperado)))
+  }
 
-    test("propia tiempoEstimado: agregar procesadores nunca baja de la profundidad") {
-      val piso = profundidad(1000, 250).toDouble
-      assert(List(1, 2, 16, 1000, 1000000).forall(procesadores =>
-        tiempoEstimado(1000, procesadores, 250) >= piso))
-    }
-  // Punto 5  ------------------------------------------------------------------
+  test("centroDeMasaParalelo: promediar promedios daría otra cosa") {
+    // Tres partículas: dos en el origen y una lejos. El promedio de los
+    // promedios de las dos mitades no es el centro de masa del conjunto.
+    val tres: Sistema = Array(
+      Particula(Vector2(0, 0), Vector2(0, 0), 1.0),
+      Particula(Vector2(0, 0), Vector2(0, 0), 1.0),
+      Particula(Vector2(9, 0), Vector2(0, 0), 1.0))
+    assert(cerca(centroDeMasaParalelo(tres, 1), Vector2(3.0, 0.0)))
+  }
+
+  test("centroDeMasaParalelo: sin masa el centro es el origen") {
+    assert(centroDeMasaParalelo(vacio, 1) == Vector2(0, 0))
+  }
+  // Punto 4  ------------------------------------------------------------------
+  test("propia profundidad: mil partículas con umbral 250") {
+    // 1000 -> 500 -> 250: dos particiones y un tramo de 250
+    assert(profundidad(1000, 250) == 252)
+  }
+
+  test("propia profundidad: con tamaño impar sigue la mitad mayor") {
+    // 100 -> 50 -> 25 -> 13 -> 7 -> 4 -> 2: seis particiones y un tramo de 2
+    assert(profundidad(100, 3) == 8)
+  }
+
+  test("propia profundidad: si el umbral cubre todo no se parte, y sin partículas no hay trabajo") {
+    assert(profundidad(10, 50) == 10)
+    assert(profundidad(0, 5) == 0)
+  }
+
+  test("propia tiempoEstimado: profundidad más trabajo entre procesadores") {
+    assert(cerca(tiempoEstimado(1000, 8, 250), 377.0)) // 252 + 1000/8
+    assert(cerca(tiempoEstimado(100, 4, 3), 33.0)) // 8 + 100/4
+  }
+
+  test("propia tiempoEstimado: agregar procesadores nunca baja de la profundidad") {
+    val piso = profundidad(1000, 250).toDouble
+    assert(List(1, 2, 16, 1000, 1000000).forall(procesadores =>
+      tiempoEstimado(1000, procesadores, 250) >= piso))
+  }
+// Punto 5  ------------------------------------------------------------------
   test("propia aceleracion: si el reparto cuesta más de lo que ahorra, da menos de uno") {
     assert(cerca(aceleracion(50.0, 200.0), 0.25))
     assert(aceleracion(50.0, 200.0) < 1.0)
@@ -349,6 +383,5 @@ class SimulacionParticulasTest extends AnyFunSuite {
     assert(pasoParalelo(sistema, 0.5, escogido).toList == pasoSecuencial(sistema, 0.5).toList)
   }
 }
-
 
 
