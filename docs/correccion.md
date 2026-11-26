@@ -287,6 +287,108 @@ Esto implica que $P_f(L) == \text{maxAux}(L.\text{head}, L.\text{tail}) == f(L)$
 
 
 // PARTICIPANTE 3
+## Punto 3: corrección de energiaParalela y centroDeMasaParalelo
+
+### Notación
+
+Sea $s = (p_0, \ldots, p_{n-1})$ el sistema, con $p_i = (x_i, v_i, m_i)$ (posición, velocidad y masa). Para $0 \le a \le b \le n$ el **segmento** $[a, b)$ son los índices $a, a+1, \ldots, b-1$, y su longitud es $\ell = b - a$. Se definen las magnitudes de un segmento:
+
+$$
+E(a,b) = \sum_{i=a}^{b-1} \tfrac{1}{2}\, m_i \lVert v_i \rVert^2
+\qquad
+W(a,b) = \sum_{i=a}^{b-1} m_i\, x_i
+\qquad
+M(a,b) = \sum_{i=a}^{b-1} m_i
+$$
+
+Con la convención de que una suma vacía vale $0$. Las especificaciones del enunciado son $energiaSecuencial(s) = E(0,n)$ y $centroDeMasaSecuencial(s) = W(0,n)/M(0,n)$ si $M(0,n) \neq 0$, y el origen si $M(0,n) = 0$.
+
+### 1. Partir el sistema en segmentos no pierde ni repite partículas
+
+Sea $[a,b)$ un segmento que se parte, es decir, con $\ell > umbral$ y $\ell > 1$. El programa toma $medio = a + \lfloor \ell/2 \rfloor$ y llama a los segmentos $[a, medio)$ y $[medio, b)$.
+
+- Como $\ell \ge 2$, se tiene $\lfloor \ell/2 \rfloor \ge 1$ y $\lfloor \ell/2 \rfloor < \ell$, luego $a < medio < b$.
+- **No se pierde ninguna:** $[a, medio) \cup [medio, b) = [a, b)$, porque todo índice $i$ con $a \le i < b$ cumple $i < medio$ o $i \ge medio$.
+- **No se repite ninguna:** $[a, medio) \cap [medio, b) = \emptyset$, porque ningún $i$ cumple a la vez $i < medio$ e $i \ge medio$.
+- Las longitudes son $\lfloor \ell/2 \rfloor$ y $\lceil \ell/2 \rceil$, ambas estrictamente menores que $\ell$.
+  Por lo tanto, cada segmento se descompone en una **partición** de sí mismo, y de la partición se sigue que cualquier suma sobre $[a,b)$ es la suma de las sumas sobre las dos partes:
+
+$$
+E(a,b) = E(a,medio) + E(medio,b)
+\qquad
+W(a,b) = W(a,medio) + W(medio,b)
+\qquad
+M(a,b) = M(a,medio) + M(medio,b)
+$$
+
+**Terminación.** Cada llamado recursivo trabaja sobre un segmento de longitud estrictamente menor, así que la longitud (un natural) decrece y se llega a $\ell \le 1$ o a $\ell \le umbral$, donde no se parte más. La condición $\ell > 1$ es la que garantiza esto cuando $umbral \le 0$: sin ella, un segmento de longitud $1$ se partiría en uno vacío y uno igual a sí mismo, y la recursión no terminaría.
+
+### 2. Corrección de energiaParalela
+
+**Lema (acumular).** Para $a \le i \le b$, acumular(i, acc) devuelve $acc + \sum_{k=i}^{b-1} \tfrac{1}{2} m_k \lVert v_k \rVert^2$.
+*Demostración por inducción sobre $b - i$.* Si $b - i = 0$, entonces $i \ge b$, devuelve $acc$ y la suma vacía vale $0$. Si $b - i = r + 1$, el programa llama a acumular(i+1, acc + ½ mᵢ‖vᵢ‖²), que por hipótesis de inducción devuelve $acc + \tfrac{1}{2} m_i \lVert v_i \rVert^2 + \sum_{k=i+1}^{b-1}(\ldots) = acc + \sum_{k=i}^{b-1}(\ldots)$. $\square$
+
+Luego acumular(a, 0.0) $= E(a,b)$.
+
+**Teorema.** Para todo segmento $[a,b)$ y todo umbral, energiaTramo(a, b) $= E(a,b)$.
+*Demostración por inducción fuerte sobre $\ell = b - a$.*
+
+- **Caso sin partir** ($\ell \le umbral$ o $\ell \le 1$, incluye $\ell = 0$): el programa devuelve acumular(a, 0.0) $= E(a,b)$ por el lema.
+- **Caso de partir** ($\ell > umbral$ y $\ell > 1$): parallel devuelve la pareja formada por energiaTramo(a, medio) y energiaTramo(medio, b); como ambos segmentos son más cortos que $\ell$, por hipótesis de inducción valen $E(a, medio)$ y $E(medio, b)$. El resultado es su suma, que por la sección 1 es $E(a,b)$. $\square$
+  Como energiaParalela(s, umbral) es energiaTramo(0, n), se concluye:
+
+$$
+\forall s,\ \forall umbral:\quad energiaParalela(s, umbral) = E(0,n) = energiaSecuencial(s)
+$$
+
+### 3. Corrección de centroDeMasaParalelo
+
+Se define la pareja parcial $P(a,b) = \big(W(a,b),\ M(a,b)\big)$ y la operación $\oplus$ sobre parejas:
+
+$$
+(W_1, M_1) \oplus (W_2, M_2) = (W_1 + W_2,\ M_1 + M_2)
+$$
+
+Igual que en la sección 2, por el lema de acumular y por inducción fuerte sobre $\ell$, parcial(a, b) $= P(a,b)$: en el caso de partir, por la sección 1, $P(a,b) = P(a,medio) \oplus P(medio,b)$, que es lo que combina el programa. Al final el programa divide **una sola vez**:
+
+$$
+centroDeMasaParalelo(s, umbral) =
+\begin{cases}
+\dfrac{W(0,n)}{M(0,n)} & \text{si } M(0,n) \neq 0 \\[2mm]
+(0,0) & \text{si } M(0,n) = 0
+\end{cases}
+$$
+
+que es exactamente la especificación de centroDeMasaSecuencial. Es decir, $\forall s,\ \forall umbral:\ centroDeMasaParalelo(s, umbral) = centroDeMasaSecuencial(s)$.
+
+### 4. La operación que combina los resultados parciales es asociativa
+
+- **Energía:** la operación es la suma de números reales, $(x + y) + z = x + (y + z)$.
+- **Centro de masa:** $\oplus$ actúa componente a componente con sumas de reales. Para parejas $(W_i, M_i)$:
+  $$
+  \big((W_1,M_1) \oplus (W_2,M_2)\big) \oplus (W_3,M_3)
+  = (W_1+W_2+W_3,\ M_1+M_2+M_3)
+  = (W_1,M_1) \oplus \big((W_2,M_2) \oplus (W_3,M_3)\big)
+  $$
+
+Además $\oplus$ tiene elemento neutro $(0,0)$ (el resultado de un tramo vacío). Por eso da igual cómo se agrupen los segmentos: el árbol de llamados puede tener cualquier forma y el resultado es el mismo.
+
+**Observación sobre los Double.** La asociatividad es exacta en $\mathbb{R}$. Con aritmética de punto flotante (IEEE 754) la suma no es exactamente asociativa, por lo que la versión paralela, que suma en otro orden que la secuencial, puede diferir en el último dígito. La diferencia es del orden del error de redondeo y por eso las pruebas comparan con una tolerancia pequeña y no con igualdad exacta.
+
+### 5. Por qué la suma sirve para repartir y el promedio no
+
+Sea $C(a,b) = W(a,b)/M(a,b)$ el centro de masa de un segmento, con $M_L = M(a,medio)$ y $M_R = M(medio,b)$. Entonces:
+
+$$
+C(a,b) = \frac{W_L + W_R}{M_L + M_R}
+= \frac{M_L\, C_L + M_R\, C_R}{M_L + M_R}
+$$
+
+es un promedio **ponderado** por las masas de cada mitad. Solo coincide con el promedio simple $\tfrac{1}{2}(C_L + C_R)$ cuando $M_L = M_R$.
+
+- **La suma sí sirve** porque las magnitudes $E$, $W$ y $M$ son sumas sobre los elementos, y una suma sobre una partición es la suma de las sumas de las partes (sección 1). Cada mitad se calcula sin saber nada de la otra y la combinación es exacta.
+- **El promedio no sirve directamente** porque el promedio de un conjunto no se obtiene del promedio de sus partes sin saber cuánto pesa cada una. Además la operación $\mathrm{prom}(x, y) = \tfrac{x+y}{2}$ ni siquiera es asociativa: $\mathrm{prom}(\mathrm{prom}(0,0), 9) = 4.5$ pero $\mathrm{prom}(0, \mathrm{prom}(0, 9)) = 2.25$, así que el resultado dependería de cómo se parta el sistema.
+  **Contraejemplo del sistema de tres partículas** (posiciones $(1,2)$, $(5,6)$, $(-3,0)$ y masas $1$, $3$, $4$): el centro de masa es $(0.5, 2.5)$, pero el promedio de los centros de las mitades $\{p_0\}$ y $\{p_1, p_2\}$ es $(\tfrac{5}{7}, \tfrac{16}{7}) \neq (0.5, 2.5)$. Llevando $(W, M)$ y dividiendo una sola vez al final, se obtiene $(4, 20)/8 = (0.5, 2.5)$, el valor correcto.
 
 
 // PARTICIPANTE 4
