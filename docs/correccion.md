@@ -14,7 +14,7 @@ cualquier lenguaje de programación) hecho para calcular $f$:
 
 ```scala
 def Pf(a: A): B = { // Pf recibe a de tipo A, y devuelve f(a) de tipo B
-  ...
+...
 }
 ```
 
@@ -124,9 +124,9 @@ Sea $b = P_f(\text{List}(a_2, \ldots, a_{k+1}))$; por la hipótesis de
 inducción, $b = f(\text{List}(a_2, \ldots, a_{k+1}))$. Hay dos posibilidades:
 
 - Si $\text{math.max}(b, a_1) = b$, entonces $b \geq a_1$ y
- $b == f(\text{List}(a_1, a_2, \ldots, a_{k+1}))$.
+  $b == f(\text{List}(a_1, a_2, \ldots, a_{k+1}))$.
 - Si $\text{math.max}(b, a_1) = a_1$, entonces $a_1 \geq b$ y
- $a_1 == f(\text{List}(a_1, a_2, \ldots, a_{k+1}))$.
+  $a_1 == f(\text{List}(a_1, a_2, \ldots, a_{k+1}))$.
 
 Por lo tanto, $P_f(L) == f(L)$.
 
@@ -394,89 +394,188 @@ es un promedio **ponderado** por las masas de cada mitad. Solo coincide con el p
 
 
 // PUNTO 5
-# Informe de corrección — Punto 5: medición de la aceleración
 
-**Asignatura:** Fundamentos de Programación Funcional y Concurrente  
-**Proyecto:** Simulación de partículas  
-**Punto:** 5 — Medición de la aceleración
+## Punto 5: medir la aceleración
 
-## 1. Especificación
+Sea $n$ el tamaño del sistema $s$, y sea $T(u)$ el tiempo que mide `medir` para
+`pasoParalelo(s, dt, u)`.
 
-El punto 5 requiere implementar las funciones:
+### Especificación
 
 ```scala
 def aceleracion(tSecuencial: Double, tParalelo: Double): Double
 def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int
 ```
 
-Además, `App.scala` debe comparar `pasoSecuencial` y `pasoParalelo` sobre sistemas grandes, con varios umbrales y utilizando ScalaMeter. El caso con umbral igual al tamaño del sistema funciona como control: al no dividir el arreglo, su aceleración debe ser aproximadamente 1.
+`aceleracion` es el cociente entre los dos tiempos. `umbralConveniente` devuelve
+el umbral de la lista que menos tarda y, con la lista vacía, el tamaño del
+sistema. Además, `App.scala` usa como control el umbral igual a $n$.
 
-## 2. Corrección de `aceleracion`
-
-La implementación es:
+### Corrección de `aceleracion`
 
 ```scala
 def aceleracion(tSecuencial: Double, tParalelo: Double): Double =
   tSecuencial / tParalelo
 ```
 
-Sean \(T_s>0\) y \(T_p>0\) los tiempos secuencial y paralelo. La función devuelve \(A=T_s/T_p\), que es exactamente la razón definida en el enunciado.
+Para $t_s, t_p$ con $t_p > 0$, la especificación es
 
-- Si \(T_s=T_p\), entonces \(A=1\).
-- Si \(T_s>T_p\), entonces \(A>1\), por lo que el tiempo paralelo fue menor.
-- Si \(T_s<T_p\), entonces \(A<1\), por lo que el tiempo paralelo fue mayor.
-
-La función realiza únicamente la división de los dos valores recibidos; no mide tiempos ni depende del tamaño del sistema.
-
-## 3. Corrección de `umbralConveniente`
-
-La función trata primero el caso de lista vacía:
-
-```scala
-if (umbrales.isEmpty) s.length
+```math
+S(t_s, t_p) = \frac{t_s}{t_p}
 ```
 
-Esto satisface la especificación: si no hay candidatos, devuelve el tamaño del sistema, que equivale a no dividirlo.
+El cuerpo de la función es esa misma expresión, así que
+$\text{aceleracion}(t_s, t_p) = S(t_s, t_p)$ por sustitución. De la definición
+se siguen los casos que usa el informe de paralelización:
 
-Si la lista no está vacía, construye pares `(tiempo, umbral)` midiendo `pasoParalelo` para cada candidato. Luego aplica `minBy(_._1)` y devuelve el segundo componente del par mínimo. Por definición de `minBy`, el resultado corresponde a un candidato cuyo tiempo medido es mínimo.
-
-La implementación actual utiliza cinco repeticiones para cada candidato:
-
-```scala
-val tiempos = umbrales.map(u => (medir(5)(pasoParalelo(s, dt, u)), u))
-tiempos.minBy(_._1)._2
+```math
+S(t, t) = 1
+\qquad
+S\!\left(t, \tfrac{t}{k}\right) = k
+\qquad
+S(a, b) \cdot S(b, a) = \frac{a}{b} \cdot \frac{b}{a} = 1
 ```
 
-Si dos candidatos empatan en tiempo, puede devolver cualquiera de los candidatos mínimos. La función no garantiza que un umbral sea siempre el más rápido en cualquier ejecución: selecciona el menor tiempo observado en esa medición.
+- Si $t_s = t_p$, entonces $S = 1$.
+- Si $t_s > t_p$, entonces $S > 1$: el tiempo paralelo fue menor.
+- Si $t_s < t_p$, entonces $S < 1$: el tiempo paralelo fue mayor.
 
-## 4. Corrección del control y equivalencia del trabajo
+La función solo divide los dos valores que recibe: no mide tiempos ni depende
+del tamaño del sistema. Los tiempos de ScalaMeter son positivos, así que el
+caso $t_p = 0$, que en punto flotante daría infinito, no aparece.
 
-`pasoSecuencial` procesa el arreglo completo llamando a `pasoSegmento(s, dt, 0, s.length)`. `pasoParalelo`, cuando el umbral es igual o mayor que `s.length`, entra en el caso base de `repartir` y también llama a `pasoSegmento(s, dt, 0, s.length)`.
+### Corrección de `umbralConveniente`
 
-Por tanto, ambas versiones aplican la misma transformación a las mismas partículas, con los mismos límites y el mismo `dt`. La versión paralela evalúa además la condición que decide si debe dividir; no crea tareas ni concatena resultados en el caso de control.
+```scala
+def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int =
+  if (umbrales.isEmpty) s.length
+  else {
+    val tiempos = umbrales.map(u => (medir(5)(pasoParalelo(s, dt, u)), u))
+    tiempos.minBy(_._1)._2
+  }
+```
 
-En términos funcionales, el resultado del control debe ser el mismo arreglo de partículas que produce `pasoSecuencial`. En términos temporales, sus mediciones deberían ser próximas y la aceleración debería quedar cerca de 1, aunque pequeñas diferencias de medición pueden aparecer por el entorno de ejecución.
+Sea $U = [u_1, \ldots, u_k]$ la lista de candidatos. El resultado $u^*$ debe
+cumplir:
 
-## 5. Pruebas de comportamiento
+- Si $U = \emptyset$, entonces $u^* = n$.
+- Si $U \neq \emptyset$, entonces $u^* \in U$ y $\forall u \in U : T(u^*) \le T(u)$.
 
-Las pruebas adecuadas para estas funciones verifican propiedades deterministas:
+*Caso $U = \emptyset$.* La condición `umbrales.isEmpty` es verdadera y la
+función devuelve `s.length`, que es $n$.
 
-- `aceleracion(100.0, 25.0) == 4.0`.
-- `aceleracion(100.0, 100.0) == 1.0`.
-- Una aceleración menor que 1 aparece cuando el tiempo paralelo es mayor que el secuencial.
-- `umbralConveniente` devuelve `s.length` cuando la lista está vacía.
-- Con un único candidato, devuelve ese candidato.
-- Con varios candidatos, devuelve uno de los que obtuvieron el menor tiempo medido.
-- El caso de control de `pasoParalelo` produce el mismo resultado funcional que `pasoSecuencial`.
+*Caso $U \neq \emptyset$.* La función construye la lista de parejas
 
-Las pruebas automatizadas no deben comparar duraciones ni exigir una aceleración mínima, porque los tiempos dependen del equipo, la JVM y la carga del sistema.
+```math
+L = [(T(u_1), u_1), \ldots, (T(u_k), u_k)]
+```
 
-## 6. Observación experimental
+`map` conserva el número de elementos y cada pareja lleva su candidato como
+segunda componente. `minBy(_._1)` devuelve una pareja $(t^*, u^*)$ de $L$ cuyo
+primer componente es el menor. Se comprueba por inducción sobre la longitud
+$j$ de la lista:
 
-En la última ejecución, las aceleraciones del control fueron 0,52 para un millón de partículas, 0,98 para dos millones y 2,68 para tres millones. La teoría y la estructura del programa indican que estos valores deberían estar cerca de 1. La diferencia no demuestra un error en la fórmula `aceleracion`; evidencia que las muestras de tiempo no son suficientemente consistentes para sostener una conclusión de rendimiento.
+- **Caso base**, $j = 1$: la lista tiene una sola pareja, y esa es la menor.
+- **Paso**: sea $m$ la pareja que `minBy` escoge entre las primeras $j$, y por
+  hipótesis de inducción $t_m \le t_i$ para esas $j$. Al llegar la pareja
+  $j + 1$ se compara con $m$. Si $t_{j+1} < t_m$ se queda con ella, y entonces
+  $t_{j+1} < t_m \le t_i$ para todas las anteriores. Si no, se queda con $m$,
+  que ya era menor o igual que todas las anteriores y que la nueva.
 
-La función `umbralConveniente` seleccionó 500.000, 1.000.000 y 3.000.000 para los tres tamaños, respectivamente. Sus resultados coincidieron con el mejor de cada tabla en esta ejecución. Esa coincidencia es una observación de esta corrida, no una garantía para futuras ejecuciones.
+Por lo tanto $t^* \le T(u)$ para todo $u \in U$, y como $u^*$ es la segunda
+componente de una pareja de $L$, pertenece a $U$. Si dos candidatos empatan,
+`minBy` conserva el primero de la lista.
 
-## 7. Conclusión
+**Alcance.** $T$ es una medición y fluctúa de una corrida a otra. Lo que se
+demuestra es que el resultado es el mejor de los tiempos medidos dentro de esa
+llamada, una vez por candidato. No se afirma que vuelva a serlo en otra
+ejecución. Por eso `umbralConveniente` y el mejor umbral de la tabla de
+`App.scala` pueden diferir, porque cada uno hace su propia medición.
 
-Las funciones `aceleracion` y `umbralConveniente` cumplen la especificación: la primera calcula el cociente entre tiempos y la segunda selecciona el candidato con menor tiempo medido, incluyendo correctamente el caso de lista vacía. El control permite comprobar que el caso sin particiones es comparable con la versión secuencial. Las anomalías observadas en algunas mediciones deben tratarse como un problema de estabilidad experimental y no como una prueba de que el algoritmo sin particiones acelera el cálculo.
+### La combinación de resultados parciales es asociativa
+
+**Escoger el menor.** `minBy` pliega la lista con la operación $\sqcap$ que, de
+dos parejas, deja la de menor tiempo y, si empatan, la de más a la izquierda.
+Es el mínimo según el orden total $(t, \text{posición})$, y el mínimo de un
+orden total es asociativo:
+
+```math
+(a \sqcap b) \sqcap c = a \sqcap (b \sqcap c)
+```
+
+Los tiempos son números finitos, así que el orden es total.
+
+**Unir los segmentos.** `pasoParalelo`, la función que se mide, combina los
+resultados de las dos mitades con `++`. Concatenar es asociativo: los dos
+lados son los elementos de $A$, seguidos de los de $B$ y de los de $C$:
+
+```math
+(A \mathbin{+\!\!+} B) \mathbin{+\!\!+} C = A \mathbin{+\!\!+} (B \mathbin{+\!\!+} C)
+```
+
+Por eso da igual cómo se agrupen los tramos que terminan primero: el arreglo
+final es el mismo.
+
+### Partir el sistema no pierde ni repite partículas
+
+La medición solo tiene sentido si `pasoParalelo` calcula lo mismo que
+`pasoSecuencial`. Sea $\text{lim} = \max(u, 1)$. Se demuestra, por inducción
+sobre la longitud $h - d$ del tramo, que para $0 \le d \le h \le n$:
+
+```math
+\text{repartir}(d, h) = [\,\text{mover}(s_d, dt), \ldots, \text{mover}(s_{h-1}, dt)\,]
+```
+
+- **Caso base**, $h - d \le \text{lim}$: `repartir` llama a
+  `pasoSegmento(s, dt, d, h)`, que construye el arreglo con una posición por
+  cada índice entre $d$ y $h - 1$, en ese orden.
+- **Paso**, $h - d > \text{lim} \ge 1$: la longitud es al menos 2 y el punto
+  medio $m = d + \lfloor (h - d)/2 \rfloor$ cumple $d < m < h$. Los dos
+  tramos $[d, m)$ y $[m, h)$ son más cortos que $[d, h)$, así que se aplica la
+  hipótesis de inducción a cada uno. Se cumple
+
+  ```math
+  [d, m) \cup [m, h) = [d, h)
+  \qquad
+  [d, m) \cap [m, h) = \emptyset
+  ```
+
+  y `++` los pega en ese orden, de modo que cada índice aparece una sola vez.
+  Que $d < m < h$ también garantiza que la recursión termina, y
+  `limite = max(umbral, 1)` evita que un tramo de un elemento se parta sin fin.
+
+Como `pasoSecuencial(s, dt)` es `pasoSegmento(s, dt, 0, n)`, que es el caso
+base con $d = 0$ y $h = n$, se concluye que para todo umbral
+
+```math
+\text{pasoParalelo}(s, dt, u) = \text{pasoSecuencial}(s, dt)
+```
+
+`mover` no modifica nada y las dos ramas de `parallel` no comparten estado que
+cambie, así que el orden en que terminen no altera el resultado.
+
+### El control y la equivalencia del trabajo
+
+Si $u \ge n$, entonces $n \le \text{lim}$ y `repartir(0, n)` cae directamente
+en el caso base: llama a `pasoSegmento(s, dt, 0, n)`, la misma expresión que
+`pasoSecuencial`. Las dos versiones aplican la misma transformación a las
+mismas partículas, con los mismos límites y el mismo `dt`; en el control no se
+crean tareas ni se concatena nada. El resultado es el mismo arreglo y, en
+tiempo, la aceleración debería quedar cerca de 1, con las diferencias propias
+del ruido de medición.
+
+### Las pruebas
+
+Las pruebas verifican propiedades deterministas y no comparan tiempos, porque
+estos dependen del equipo, de la JVM y de la carga del sistema:
+
+- `aceleracion` da menos de 1 cuando el paralelo tarda más, y 3,0 con 7,5 y 2,5.
+- Al intercambiar los tiempos el resultado es el inverso, y el producto es 1.
+- `umbralConveniente` devuelve el tamaño del sistema con la lista vacía, para
+  tamaños 0, 1, 37 y 500.
+- Con un solo candidato devuelve ese candidato.
+- El umbral escogido pertenece a la lista y, con él, `pasoParalelo` da el mismo
+  arreglo que `pasoSecuencial`.
+
+Los tiempos que se midieron, y cómo se interpretan, están en
+`paralelizacion.md`.
