@@ -199,3 +199,4 @@ combinar los resultados, y en el acceso a una memoria que comparten los
 dieciséis núcleos.
 
 // ENCARGADO DE INFORMA PARALELIZACION ES SANTIAGO VELANDIA
+

@@ -136,7 +136,7 @@ class SimulacionParticulas {
   def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int = {
     if (umbrales.isEmpty) s.length
     else {
-      val tiempos = umbrales.map(u => (medir(3)(pasoParalelo(s,dt,u)),(u)))
+      val tiempos = umbrales.map(u => (medir(5)(pasoParalelo(s,dt,u)),(u)))
       tiempos.minBy(_._1)._2
     }
   }

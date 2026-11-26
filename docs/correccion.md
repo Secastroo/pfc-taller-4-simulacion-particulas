@@ -280,13 +280,16 @@ Esto implica que $P_f(L) == \text{maxAux}(L.\text{head}, L.\text{tail}) == f(L)$
 
 
 
-// PARTICIPANTE 1
+// PUNTO 1
 
 
-// PARTICIPANTE 2
+// PUNTO 2
 
 
-// PARTICIPANTE 3
+// PUNTO 3
 
 
-// PARTICIPANTE 4
+// PUNTO 4
+
+
+// PUNTO 5

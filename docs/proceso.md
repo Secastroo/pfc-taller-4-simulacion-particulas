@@ -129,13 +129,16 @@ sequenceDiagram
 ```
 
 
-// PARTICIPANTE 1
+// PUNTO 1
 
 
-// PARTICIPANTE 2
+// PUNTO 2
 
 
-// PARTICIPANTE 3
+// PUNTO 3
 
 
-// PARTICIPANTE 4
+// PUNTO 4
+
+
+// PUNTO 5
