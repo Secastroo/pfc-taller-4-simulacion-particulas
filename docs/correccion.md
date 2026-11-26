@@ -280,13 +280,102 @@ Esto implica que $P_f(L) == \text{maxAux}(L.\text{head}, L.\text{tail}) == f(L)$
 
 
 
-// PARTICIPANTE 1
+// PUNTO 1
 
 
-// PARTICIPANTE 2
+// PUNTO 2
 
 
-// PARTICIPANTE 3
+// PUNTO 3
 
 
-// PARTICIPANTE 4
+// PUNTO 4
+
+
+// PUNTO 5
+# Informe de corrección — Punto 5: medición de la aceleración
+
+**Asignatura:** Fundamentos de Programación Funcional y Concurrente  
+**Proyecto:** Simulación de partículas  
+**Punto:** 5 — Medición de la aceleración
+
+## 1. Especificación
+
+El punto 5 requiere implementar las funciones:
+
+```scala
+def aceleracion(tSecuencial: Double, tParalelo: Double): Double
+def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int
+```
+
+Además, `App.scala` debe comparar `pasoSecuencial` y `pasoParalelo` sobre sistemas grandes, con varios umbrales y utilizando ScalaMeter. El caso con umbral igual al tamaño del sistema funciona como control: al no dividir el arreglo, su aceleración debe ser aproximadamente 1.
+
+## 2. Corrección de `aceleracion`
+
+La implementación es:
+
+```scala
+def aceleracion(tSecuencial: Double, tParalelo: Double): Double =
+  tSecuencial / tParalelo
+```
+
+Sean \(T_s>0\) y \(T_p>0\) los tiempos secuencial y paralelo. La función devuelve \(A=T_s/T_p\), que es exactamente la razón definida en el enunciado.
+
+- Si \(T_s=T_p\), entonces \(A=1\).
+- Si \(T_s>T_p\), entonces \(A>1\), por lo que el tiempo paralelo fue menor.
+- Si \(T_s<T_p\), entonces \(A<1\), por lo que el tiempo paralelo fue mayor.
+
+La función realiza únicamente la división de los dos valores recibidos; no mide tiempos ni depende del tamaño del sistema.
+
+## 3. Corrección de `umbralConveniente`
+
+La función trata primero el caso de lista vacía:
+
+```scala
+if (umbrales.isEmpty) s.length
+```
+
+Esto satisface la especificación: si no hay candidatos, devuelve el tamaño del sistema, que equivale a no dividirlo.
+
+Si la lista no está vacía, construye pares `(tiempo, umbral)` midiendo `pasoParalelo` para cada candidato. Luego aplica `minBy(_._1)` y devuelve el segundo componente del par mínimo. Por definición de `minBy`, el resultado corresponde a un candidato cuyo tiempo medido es mínimo.
+
+La implementación actual utiliza cinco repeticiones para cada candidato:
+
+```scala
+val tiempos = umbrales.map(u => (medir(5)(pasoParalelo(s, dt, u)), u))
+tiempos.minBy(_._1)._2
+```
+
+Si dos candidatos empatan en tiempo, puede devolver cualquiera de los candidatos mínimos. La función no garantiza que un umbral sea siempre el más rápido en cualquier ejecución: selecciona el menor tiempo observado en esa medición.
+
+## 4. Corrección del control y equivalencia del trabajo
+
+`pasoSecuencial` procesa el arreglo completo llamando a `pasoSegmento(s, dt, 0, s.length)`. `pasoParalelo`, cuando el umbral es igual o mayor que `s.length`, entra en el caso base de `repartir` y también llama a `pasoSegmento(s, dt, 0, s.length)`.
+
+Por tanto, ambas versiones aplican la misma transformación a las mismas partículas, con los mismos límites y el mismo `dt`. La versión paralela evalúa además la condición que decide si debe dividir; no crea tareas ni concatena resultados en el caso de control.
+
+En términos funcionales, el resultado del control debe ser el mismo arreglo de partículas que produce `pasoSecuencial`. En términos temporales, sus mediciones deberían ser próximas y la aceleración debería quedar cerca de 1, aunque pequeñas diferencias de medición pueden aparecer por el entorno de ejecución.
+
+## 5. Pruebas de comportamiento
+
+Las pruebas adecuadas para estas funciones verifican propiedades deterministas:
+
+- `aceleracion(100.0, 25.0) == 4.0`.
+- `aceleracion(100.0, 100.0) == 1.0`.
+- Una aceleración menor que 1 aparece cuando el tiempo paralelo es mayor que el secuencial.
+- `umbralConveniente` devuelve `s.length` cuando la lista está vacía.
+- Con un único candidato, devuelve ese candidato.
+- Con varios candidatos, devuelve uno de los que obtuvieron el menor tiempo medido.
+- El caso de control de `pasoParalelo` produce el mismo resultado funcional que `pasoSecuencial`.
+
+Las pruebas automatizadas no deben comparar duraciones ni exigir una aceleración mínima, porque los tiempos dependen del equipo, la JVM y la carga del sistema.
+
+## 6. Observación experimental
+
+En la última ejecución, las aceleraciones del control fueron 0,52 para un millón de partículas, 0,98 para dos millones y 2,68 para tres millones. La teoría y la estructura del programa indican que estos valores deberían estar cerca de 1. La diferencia no demuestra un error en la fórmula `aceleracion`; evidencia que las muestras de tiempo no son suficientemente consistentes para sostener una conclusión de rendimiento.
+
+La función `umbralConveniente` seleccionó 500.000, 1.000.000 y 3.000.000 para los tres tamaños, respectivamente. Sus resultados coincidieron con el mejor de cada tabla en esta ejecución. Esa coincidencia es una observación de esta corrida, no una garantía para futuras ejecuciones.
+
+## 7. Conclusión
+
+Las funciones `aceleracion` y `umbralConveniente` cumplen la especificación: la primera calcula el cociente entre tiempos y la segunda selecciona el candidato con menor tiempo medido, incluyendo correctamente el caso de lista vacía. El control permite comprobar que el caso sin particiones es comparable con la versión secuencial. Las anomalías observadas en algunas mediciones deben tratarse como un problema de estabilidad experimental y no como una prueba de que el algoritmo sin particiones acelera el cálculo.
