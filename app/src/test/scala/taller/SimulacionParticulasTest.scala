@@ -210,6 +210,9 @@ class SimulacionParticulasTest extends AnyFunSuite {
     val candidatos = List(16, 128, 1024)
     assert(candidatos.contains(umbralConveniente(grande, 0.5, candidatos)))
   }
+
+  //TEST PROPIOS
+
   // Punto 1  ------------------------------------------------------------------
 
   test("propia pasoSegmento: avanza solo desde incluido hasta excluido") {
