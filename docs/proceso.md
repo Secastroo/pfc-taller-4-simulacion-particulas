@@ -130,6 +130,170 @@ sequenceDiagram
 
 
 // PUNTO 1
+## Punto 1: un paso de la simulación
+
+Un paso de la simulación hace una sola cosa: cada partícula se mueve según su velocidad. Su posición nueva es la anterior más la velocidad por el tiempo `dt`, y su velocidad y su masa se quedan como estaban. Lo interesante es que el cálculo de una partícula no depende de ninguna otra, y por eso el trabajo se puede repartir. Son cuatro funciones: `mover` hace el cálculo de una partícula, `pasoSegmento` lo hace para un tramo del arreglo, `pasoSecuencial` lo hace para todo el sistema y `pasoParalelo` parte el sistema en tramos que se calculan al mismo tiempo.
+
+Para las trazas usamos un sistema pequeño de cinco partículas, numeradas desde cero. La partícula `i` está en `(i, 0)`, se mueve con velocidad `(1, 1)` y tiene masa 1. Con `dt = 2.0`, cada una debería terminar en `(i + 2, 2)`.
+
+| i | Posición | Velocidad | Masa |
+|---|----------|-----------|------|
+| 0 | `(0, 0)` | `(1, 1)` | 1.0 |
+| 1 | `(1, 0)` | `(1, 1)` | 1.0 |
+| 2 | `(2, 0)` | `(1, 1)` | 1.0 |
+| 3 | `(3, 0)` | `(1, 1)` | 1.0 |
+| 4 | `(4, 0)` | `(1, 1)` | 1.0 |
+
+### mover
+
+```scala
+def mover(p: Particula, dt: Double): Particula =
+  Particula(p.pos + p.vel * dt, p.vel, p.masa)
+```
+
+Es el cálculo de una sola partícula, y los demás se apoyan en él. Primero multiplica la velocidad por `dt`, después le suma ese desplazamiento a la posición, y arma una partícula nueva con esa posición y con la misma velocidad y la misma masa. No se modifica ninguna partícula: cada llamado devuelve una nueva.
+
+Traza con la partícula 3 y `dt = 2.0`:
+
+| Paso | Operación | Resultado |
+|------|-----------|-----------|
+| 1 | `p.vel * dt` | `(1, 1) * 2.0 = (2, 2)` |
+| 2 | `p.pos + (2, 2)` | `(3, 0) + (2, 2) = (5, 2)` |
+| 3 | se arma la partícula nueva | `Particula((5, 2), (1, 1), 1.0)` |
+
+### pasoSegmento
+
+```scala
+def pasoSegmento(s: Sistema, dt: Double, desde: Int, hasta: Int): Sistema = {
+  val inicio = math.max(desde, 0)
+  val fin = math.min(hasta, s.length)
+  Array.tabulate(math.max(fin - inicio, 0))(i => mover(s(inicio + i), dt))
+}
+```
+
+Avanza solo el tramo que empieza en `desde`, incluido, y termina en `hasta`, excluido, y devuelve un arreglo con solo esas partículas ya movidas. Funciona en tres pasos:
+
+1. Recorta el tramo a los límites del arreglo, por si `desde` es negativo o `hasta` se pasa del final.
+2. Calcula cuántas partículas tiene el tramo, que es `fin - inicio`, o cero si el tramo quedó vacío o al revés.
+3. `Array.tabulate` arma un arreglo de esa longitud, y en la posición `i` pone la partícula `inicio + i` del sistema, ya movida con `mover`.
+
+Traza con `pasoSegmento(s, 2.0, 1, 4)` sobre el sistema de arriba:
+
+| Paso | Qué se calcula | Valor |
+|------|----------------|-------|
+| 1 | `inicio` y `fin` | `inicio = 1` y `fin = 4`, que están dentro del arreglo |
+| 2 | largo del tramo | `4 - 1 = 3` |
+| 3 | posición 0 del resultado | `mover(s(1), 2.0)`, que da `(3, 2)` |
+| 4 | posición 1 del resultado | `mover(s(2), 2.0)`, que da `(4, 2)` |
+| 5 | posición 2 del resultado | `mover(s(3), 2.0)`, que da `(5, 2)` |
+
+El resultado tiene tres partículas, que son la 1, la 2 y la 3 ya movidas. La 0 y la 4 no aparecen porque quedaron fuera del tramo. Con `desde` igual a `hasta`, el largo es cero y el resultado es un arreglo vacío. Con `hasta = 100` sobre este sistema de cinco partículas, el paso 1 lo recorta a 5.
+
+### pasoSecuencial
+
+```scala
+def pasoSecuencial(s: Sistema, dt: Double): Sistema =
+  pasoSegmento(s, dt, 0, s.length)
+```
+
+El paso secuencial es el segmento que cubre todo el sistema, desde la posición 0 hasta el final. Se escribió así a propósito: el enunciado advierte que, si la versión secuencial y la paralela calculan cada tramo de maneras distintas, la diferencia de tiempos mide dos operaciones diferentes y no solo el reparto. Con esta definición, las dos versiones usan exactamente la misma función para calcular cada tramo.
+
+Traza con `pasoSecuencial(s, 2.0)`: es `pasoSegmento(s, 2.0, 0, 5)`, que calcula las cinco partículas y devuelve las posiciones `(2, 2)`, `(3, 2)`, `(4, 2)`, `(5, 2)` y `(6, 2)`, que es lo que esperábamos.
+
+### pasoParalelo
+
+```scala
+def pasoParalelo(s: Sistema, dt: Double, umbral: Int): Sistema = {
+  val limite = math.max(umbral, 1)
+  // Si todo el sistema cabe en el umbral no se reparte nada: se resuelve igual
+  // que la versión secuencial.
+  if (s.length <= limite) {
+    pasoSegmento(s, dt, 0, s.length)
+  } else {
+    def repartir(desde: Int, hasta: Int): Sistema =
+      if (hasta - desde <= limite) pasoSegmento(s, dt, desde, hasta)
+      else {
+        val medio = desde + (hasta - desde) / 2
+        val (izquierda, derecha) =
+          parallel(repartir(desde, medio), repartir(medio, hasta))
+        izquierda ++ derecha
+      }
+
+    repartir(0, s.length)
+  }
+}
+```
+
+Esta función tiene cuatro partes.
+
+La primera es `limite`, que es el umbral pero nunca menor que uno. Si el umbral fuera cero, un tramo de un solo elemento se seguiría partiendo para siempre, porque su mitad izquierda quedaría vacía y su mitad derecha sería ese mismo tramo.
+
+La segunda es una revisión inicial: si todo el sistema cabe en el umbral, es decir, si `s.length` no pasa de `limite`, no hay nada que repartir y se calcula de una vez con `pasoSegmento(s, dt, 0, s.length)`, que es justo lo que hace `pasoSecuencial`. Esta revisión no cambia lo que se calcula, porque si se saltara, el primer llamado de `repartir` caería en su caso base y haría esa misma llamada. Lo que hace es dejar explícito el caso en que no se reparte nada, que es el caso de control de las mediciones.
+
+La tercera es la función interna `repartir`, que solo se define cuando el sistema sí pasa del umbral. Trabaja sobre el tramo que va de `desde` a `hasta`, y tiene dos casos:
+
+* Si el tramo no pasa del umbral, se calcula directamente con `pasoSegmento`. Es el caso base: ahí no se reparte nada.
+* Si el tramo pasa del umbral, se calcula el punto medio, `desde + (hasta - desde) / 2`, y se parten dos tramos: de `desde` a `medio` y de `medio` a `hasta`. Con `parallel`, la mitad derecha se entrega como una tarea para que la haga otro hilo, mientras el hilo que llama se ocupa de la izquierda. Cuando las dos terminan, se pegan con `izquierda ++ derecha`.
+
+La cuarta es la llamada inicial, `repartir(0, s.length)`, que arranca con el sistema completo.
+
+La división del medio se escribe como `desde + (hasta - desde) / 2` y no como `(desde + hasta) / 2` para que la suma no se pase del límite de un entero cuando el arreglo es muy grande. Cuando el tramo tiene tamaño impar, la mitad izquierda se queda con el piso de la mitad y la derecha con el resto, por ejemplo 2 y 3 para un tramo de 5.
+
+Traza con el sistema de cinco partículas, `dt = 2.0` y `umbral = 2`. Cada fila es un llamado a `repartir`:
+
+| Llamado | Tramo | Tamaño | ¿Pasa del umbral (2)? | Qué hace |
+|---------|-------|--------|-----------------------|----------|
+| R1 | de 0 a 5 | 5 | sí | `medio = 0 + 5/2 = 2`: parte en los tramos de 0 a 2 y de 2 a 5 |
+| R2 | de 0 a 2 | 2 | no | resuelve con `pasoSegmento` y devuelve P0 y P1 ya movidas |
+| R3 | de 2 a 5 | 3 | sí | `medio = 2 + 3/2 = 3`: parte en los tramos de 2 a 3 y de 3 a 5 |
+| R4 | de 2 a 3 | 1 | no | resuelve con `pasoSegmento` y devuelve P2 ya movida |
+| R5 | de 3 a 5 | 2 | no | resuelve con `pasoSegmento` y devuelve P3 y P4 ya movidas |
+
+Aquí `Pi` es la partícula `i` y `Pi'` es la misma partícula ya movida, que queda en `(i + 2, 2)`. Estos tramos no son una suposición: los registramos ejecutando la función real y quedaron exactamente así.
+
+```mermaid
+flowchart TD
+    A["R1: tramo de 0 a 5<br/>tamaño 5 mayor que 2: se parte"]
+    A --> B["R2: tramo de 0 a 2<br/>tamaño 2: pasoSegmento"]
+    A --> C["R3: tramo de 2 a 5<br/>tamaño 3 mayor que 2: se parte"]
+    C --> D["R4: tramo de 2 a 3<br/>tamaño 1: pasoSegmento"]
+    C --> E["R5: tramo de 3 a 5<br/>tamaño 2: pasoSegmento"]
+```
+
+Las hojas del árbol son R2, R4 y R5, y son los llamados que de verdad calculan partículas. Sus tramos, de 0 a 2, de 2 a 3 y de 3 a 5, tienen 2, 1 y 2 partículas, que suman las 5 del sistema, y ninguna aparece en dos hojas. Esto es justo lo que se demuestra en el informe de corrección.
+
+El reparto se hace hacia abajo, partiendo el tramo. Los resultados se combinan hacia arriba, y en ese orden:
+
+| Paso | Qué se une | Resultado |
+|------|------------|-----------|
+| 1 | R4 y R5, con `++` | `P2', P3', P4'`, que es el resultado del tramo de 2 a 5 |
+| 2 | R2 y el resultado del paso 1, con `++` | `P0', P1', P2', P3', P4'` |
+
+Con las posiciones, el resultado final es `(2, 2)`, `(3, 2)`, `(4, 2)`, `(5, 2)` y `(6, 2)`, igual que el de `pasoSecuencial`.
+
+```mermaid
+flowchart TD
+    B["R2: P0', P1'"] --> G["R2 ++ R3<br/>P0', P1', P2', P3', P4'"]
+    D["R4: P2'"] --> F["R4 ++ R5<br/>P2', P3', P4'"]
+    E["R5: P3', P4'"] --> F
+    F --> G
+```
+
+Lo que importa de la unión es el orden: siempre va la izquierda antes que la derecha. Si en algún `++` se invirtieran, las partículas quedarían en posiciones cambiadas, aunque ninguna se perdiera.
+
+Cómo cambia el reparto con el umbral, para un sistema de cinco y de siete partículas. Los tramos son los de las hojas del árbol, registrados al ejecutar la función real:
+
+| Partículas | Umbral | Tramos que se calculan directamente |
+|------------|--------|--------------------------------------|
+| 5 | 1 | de 0 a 1, de 1 a 2, de 2 a 3, de 3 a 4, de 4 a 5 (cinco tramos) |
+| 5 | 2 | de 0 a 2, de 2 a 3, de 3 a 5 (tres tramos) |
+| 5 | 5 o más | de 0 a 5 (un solo tramo: no se reparte nada) |
+| 7 | 2 | de 0 a 1, de 1 a 3, de 3 a 5, de 5 a 7 (cuatro tramos) |
+| 5 | 0 | igual que con umbral 1, porque el umbral nunca baja de uno |
+
+Con un umbral que cubre todo el sistema, que es el caso de control que pide el enunciado, la revisión inicial lo detecta y la función nunca se parte: calcula directamente el tramo de 0 a `n`, que es exactamente lo que hace `pasoSecuencial`. Por eso en ese caso las dos versiones hacen el mismo trabajo, y la aceleración medida tiene que dar 1.
+
+Una última observación: cada vez que se parte un tramo se lanza una tarea nueva para su mitad derecha, y cada `++` copia los elementos de las dos mitades en un arreglo nuevo. Mientras más pequeño es el umbral, más tareas se lanzan y más veces se copian los datos. Ese costo del reparto es el que el informe de paralelización compara contra lo que se ahorra.
 
 
 // PUNTO 2
