@@ -296,10 +296,124 @@ Con un umbral que cubre todo el sistema, que es el caso de control que pide el e
 Una última observación: cada vez que se parte un tramo se lanza una tarea nueva para su mitad derecha, y cada `++` copia los elementos de las dos mitades en un arreglo nuevo. Mientras más pequeño es el umbral, más tareas se lanzan y más veces se copian los datos. Ese costo del reparto es el que el informe de paralelización compara contra lo que se ahorra.
 
 
-// PUNTO 2
+## Punto 2: magnitudes globales (energiaSecuencial, masaTotal y centroDeMasaSecuencial)
 
+```scala
+def energiaSecuencial(s: Sistema): Double = {
+  val energias = s.map(particula => 0.5 * particula.masa * particula.vel.norma * particula.vel.norma)
+  energias.sum
+}
 
-// PARTICIPANTE 3
+def masaTotal(s: Sistema): Double = {
+  val masas = s.map(particula => particula.masa)
+  masas.sum
+}
+
+def centroDeMasaSecuencial(s: Sistema): Vector2 = {
+  val masa = masaTotal(s)
+  if (masa == 0.0) Vector2(0.0, 0.0)
+  else {
+    val ponderadas = s.map(particula => particula.pos * particula.masa)
+    val suma = ponderadas.foldLeft(Vector2(0.0, 0.0))((acumulado, v) => acumulado + v)
+    Vector2(suma.x / masa, suma.y / masa)
+  }
+}
+```
+
+Estas tres funciones recorren el sistema completo, sin repartirlo: son la
+versión secuencial con la que se compara el Punto 3. No se usó ninguna
+expresión `for`; los recorridos se hacen con `map`, `sum` y `foldLeft`. No hay
+`var`, `while` ni `return`.
+
+### Qué hace cada operación
+
+* `s.map(particula => ...)` recorre el arreglo y convierte cada partícula en
+  otro valor. Devuelve un arreglo nuevo del mismo largo, y el original no se
+  modifica.
+* `particula.vel.norma` es el largo del vector velocidad, `sqrt(x*x + y*y)`.
+  La energía de una partícula es `0.5 * masa * norma * norma`.
+* `energias.sum` y `masas.sum` suman todos los números del arreglo. Con un
+  arreglo vacío dan `0.0`.
+* `particula.pos * particula.masa` multiplica las dos coordenadas de la
+  posición por la masa: es la posición "ponderada".
+* `foldLeft(Vector2(0.0, 0.0))((acumulado, v) => acumulado + v)` suma los
+  vectores de izquierda a derecha. Empieza con el vector `(0, 0)`, y en cada paso
+  suma el siguiente vector al acumulado.
+* `if (masa == 0.0) Vector2(0.0, 0.0)` evita dividir entre cero: sin masa, el
+  centro es el origen, como pide el enunciado.
+* `val` le pone un nombre a un resultado. Se fija una vez y no cambia, así que
+  no es una variable.
+
+### Ejemplo pequeño
+
+Sistema de dos partículas:
+
+| Partícula | `pos` | `vel` | `masa` |
+|---|---|---|:---:|
+| P0 | (0, 0) | (3, 4) | 2.0 |
+| P1 | (4, 0) | (0, 0) | 2.0 |
+
+**Traza de `energiaSecuencial(s)`**
+
+1. `s.map(...)` calcula la energía de cada partícula:
+   * P0: `norma` de (3, 4) es 5.0, y `0.5 * 2.0 * 5.0 * 5.0 = 25.0`.
+   * P1: `norma` de (0, 0) es 0.0, y `0.5 * 2.0 * 0.0 * 0.0 = 0.0`.
+2. `energias = Array(25.0, 0.0)`.
+3. `energias.sum`: `0.0 + 25.0 = 25.0`, y luego `25.0 + 0.0 = 25.0`.
+4. Resultado: `25.0`.
+
+**Traza de `masaTotal(s)`**
+
+1. `masas = Array(2.0, 2.0)`.
+2. `masas.sum`: `0.0 + 2.0 = 2.0`, y luego `2.0 + 2.0 = 4.0`.
+3. Resultado: `4.0`.
+
+**Traza de `centroDeMasaSecuencial(s)`**
+
+1. `masa = masaTotal(s) = 4.0`. No es cero, así que se sigue por el `else`.
+2. `ponderadas` multiplica cada posición por su masa:
+   * P0: `(0, 0) * 2.0 = (0.0, 0.0)`.
+   * P1: `(4, 0) * 2.0 = (8.0, 0.0)`.
+3. `foldLeft` suma los dos vectores, empezando en `(0, 0)`:
+
+   | Paso | `acumulado` | `v` | `acumulado + v` |
+   |:---:|---|---|---|
+   | 1 | (0.0, 0.0) | (0.0, 0.0) | (0.0, 0.0) |
+   | 2 | (0.0, 0.0) | (8.0, 0.0) | (8.0, 0.0) |
+
+4. `suma = (8.0, 0.0)`.
+5. Se divide cada coordenada entre `masa`: `(8.0 / 4.0, 0.0 / 4.0)`.
+6. Resultado: `Vector2(2.0, 0.0)`.
+
+### Diagrama de los llamados
+
+```mermaid
+flowchart TD
+    S["s: arreglo de particulas"] --> E["map: media masa por norma al cuadrado"]
+    E --> ES["sum"]
+    ES --> RE["energia"]
+    S --> MS["map: masa de cada particula"]
+    MS --> MT["sum"]
+    MT --> RM["masaTotal"]
+    RM --> Q{"masa igual a cero"}
+    Q -->|"si"| O["origen (0, 0)"]
+    Q -->|"no"| PO["map: posicion por masa"]
+    S --> PO
+    PO --> F["foldLeft suma de vectores"]
+    F --> D["dividir cada coordenada entre masa"]
+    D --> RC["centro de masa"]
+```
+
+### Casos especiales
+
+* **Sistema vacío.** `map` no tiene elementos y las sumas dan `0.0`. En
+  `centroDeMasaSecuencial`, `masa` es `0.0` y se devuelve el origen sin dividir.
+* **Masa total cero con partículas presentes.** Si todas las masas son `0.0`,
+  `masa == 0.0` y se devuelve el origen. Sin esa comprobación, la división
+  `0.0 / 0.0` daría `NaN`.
+* **Partícula quieta.** Su norma es `0.0`, así que no aporta energía.
+* **Tolerancia.** Con números `Double` la suma puede cambiar en las últimas
+  cifras según el orden. Por eso las pruebas comparan con una tolerancia pequeña.
 ## Punto 3: magnitudes globales en paralelo (energiaParalela y centroDeMasaParalelo)
 
 Las dos funciones reparten el sistema con parallel igual que pasoParalelo: un tramo $[desde, hasta)$ se parte por la mitad mientras tenga más elementos que el umbral (y más de uno, para que con umbral $\le 0$ la recursión termine). Cuando el tramo ya no se parte, un acumular de cola lo recorre por índice y devuelve su resultado parcial. Después cada nivel combina los dos resultados parciales.
@@ -353,10 +467,125 @@ flowchart TD
 - **Sistema vacío:** energiaTramo(0, 0) no se parte y acumular devuelve $0.0$. En el centro de masa, $M = 0$ y se devuelve el origen.
 - **umbral $\le 0$ o mayor que el sistema:** con $umbral \le 0$ el tramo se parte hasta quedar de un elemento (la condición $hasta - desde > 1$ detiene la recursión); con un umbral mayor o igual al tamaño nada se parte y el resultado se obtiene en un solo acumular.
 
-- // PUNTO 4
+## Punto 4: trabajo y profundidad (trabajo, profundidad y tiempoEstimado)
 
+```scala
+def trabajo(n: Int): Int = n
 
-// PUNTO 5
+def profundidad(n: Int, umbral: Int): Int = {
+  val limite = math.max(umbral, 1)
+  if (n <= limite) trabajo(n)
+  else 1 + profundidad((n + 1) / 2, limite)
+}
+
+def tiempoEstimado(n: Int, p: Int, umbral: Int): Double = {
+  val prof = profundidad(n, umbral)
+  val repartido = trabajo(n).toDouble / p
+  prof + repartido
+}
+```
+
+Estas funciones **no ejecutan nada ni usan `parallel`**: estiman cuánto
+costaría repartir el paso de la simulación con `pasoParalelo`. No se usó
+ninguna expresión `for`.
+
+### Qué hace cada función
+
+* `trabajo(n)` es el número total de operaciones: una por partícula, así que es
+  `n`. No baja por repartirlo.
+* `profundidad(n, umbral)` cuenta cuántas veces se parte el tramo a la mitad
+  hasta que cabe en el umbral, y suma lo que cuesta el tramo que queda sin
+  partir. Es el costo de la parte que no se puede hacer al mismo tiempo.
+  * `limite = math.max(umbral, 1)` hace que un umbral menor que uno se trate
+    como uno, igual que `pasoParalelo`.
+  * Si `n <= limite`, el tramo no se parte y cuesta `trabajo(n)`.
+  * Si no, se cuenta una partición (`1 +`) y se sigue con la mitad mayor,
+    `(n + 1) / 2`. La división es entera, así que con `n` impar da la mitad que
+    sobra.
+* `tiempoEstimado(n, p, umbral)` es la profundidad más el trabajo repartido
+  entre `p` procesadores. `trabajo(n).toDouble` evita que la división sea entera.
+
+### Ejemplo pequeño: `profundidad(100, 3)`
+
+Con `limite = 3`. Cada llamado revisa si el tramo cabe en el umbral y, si no,
+cuenta una partición y llama con la mitad mayor.
+
+| Llamado | `n` | ¿Cabe en el umbral? | Qué hace |
+|---|:---:|:---:|---|
+| `profundidad(100, 3)` | 100 | No | `1 + profundidad(50, 3)` |
+| `profundidad(50, 3)` | 50 | No | `1 + profundidad(25, 3)` |
+| `profundidad(25, 3)` | 25 | No | `1 + profundidad(13, 3)` |
+| `profundidad(13, 3)` | 13 | No | `1 + profundidad(7, 3)` |
+| `profundidad(7, 3)` | 7 | No | `1 + profundidad(4, 3)` |
+| `profundidad(4, 3)` | 4 | No | `1 + profundidad(2, 3)` |
+| `profundidad(2, 3)` | 2 | **Sí** | devuelve `trabajo(2) = 2` |
+
+Al volver, cada llamado suma su `1`: seis particiones y el tramo final de 2.
+
+```
+profundidad(100, 3) = 1 + 1 + 1 + 1 + 1 + 1 + 2 = 8
+```
+
+Con `n` impar, `(n + 1) / 2` redondea hacia arriba: `25` pasa a `13` y no a
+`12`, y `13` pasa a `7`.
+
+**Traza de `tiempoEstimado(1000, 8, 250)`**
+
+1. `profundidad(1000, 250)`: `1000` no cabe en `250`, se parte a `500`. `500` no
+   cabe, se parte a `250`. `250` cabe en `250`, se detiene y devuelve `250`. Son
+   dos particiones: `1 + 1 + 250 = 252`.
+2. `trabajo(1000) = 1000`, y `1000.toDouble / 8 = 125.0`.
+3. `prof + repartido = 252 + 125.0 = 377.0`.
+
+### Árbol de partición de un sistema de 7 partículas con umbral 2
+
+Es el árbol que arma `pasoParalelo`: cada tramo con más de 2 elementos se parte
+en dos mitades (la menor y la mayor), y las hojas resuelven en secuencial. La
+suma de las hojas es el trabajo, `1 + 2 + 2 + 2 = 7`.
+
+```mermaid
+graph TD
+    A["tramo de 7: se parte"] --> B["tramo de 3: se parte"]
+    A --> C["tramo de 4: se parte"]
+    B --> D["hoja de 1"]
+    B --> E["hoja de 2"]
+    C --> F["hoja de 2"]
+    C --> G["hoja de 2"]
+```
+
+Siguiendo la mitad mayor (7, luego 4, luego una hoja de 2) hay dos
+particiones y un tramo de 2: `profundidad(7, 2) = 2 + 2 = 4`.
+
+### Diagrama de los llamados
+
+Cadena de llamados de `profundidad(100, 3)`. Cada flecha suma una partición, y
+el resultado se arma al volver:
+
+```mermaid
+flowchart LR
+    A["n = 100"] -->|"+1"| B["n = 50"]
+    B -->|"+1"| C["n = 25"]
+    C -->|"+1"| D["n = 13"]
+    D -->|"+1"| E["n = 7"]
+    E -->|"+1"| F["n = 4"]
+    F -->|"+1"| G["n = 2: cabe en el umbral"]
+    G --> H["profundidad = 6 + 2 = 8"]
+```
+
+### Casos especiales
+
+* **Umbral que cubre todo** (`profundidad(10, 50)`): `10` cabe en `50`, no se
+  parte y la profundidad es `10`, que es el trabajo completo. No hay ganancia.
+* **Sistema vacío** (`profundidad(0, 5)`): `0` cabe en `5` y devuelve
+  `trabajo(0) = 0`.
+* **Umbral cero o negativo:** `limite` pasa a `1`, así que se parte hasta llegar
+  a tramos de un solo elemento y no hay recursión infinita.
+* **`p = 1`:** `tiempoEstimado(n, 1, umbral) = profundidad + n`: con un solo
+  procesador no hay ganancia por repartir.
+* **Muchos procesadores:** `tiempoEstimado` baja al subir `p`, pero nunca por
+  debajo de la profundidad.
+
+  
 
 ## Punto 5: medir la aceleración
 
