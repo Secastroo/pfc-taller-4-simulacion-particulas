@@ -280,7 +280,6 @@ Esto implica que $P_f(L) == \text{maxAux}(L.\text{head}, L.\text{tail}) == f(L)$
 
 
 
-// PUNTO 1
 ## Punto 1: un paso de la simulación
 
 Un paso de la simulación hace una sola cosa: cada partícula se mueve según su velocidad. Su posición nueva es la anterior más la velocidad por el tiempo `dt`, y su velocidad y su masa se quedan como estaban. Lo interesante es que el cálculo de una partícula no depende de ninguna otra, y por eso el trabajo se puede repartir. Son cuatro funciones: `mover` hace el cálculo de una partícula, `pasoSegmento` lo hace para un tramo del arreglo, `pasoSecuencial` lo hace para todo el sistema y `pasoParalelo` parte el sistema en tramos que se calculan al mismo tiempo.
@@ -446,10 +445,172 @@ Con un umbral que cubre todo el sistema, que es el caso de control que pide el e
 
 Una última observación: cada vez que se parte un tramo se lanza una tarea nueva para su mitad derecha, y cada `++` copia los elementos de las dos mitades en un arreglo nuevo. Mientras más pequeño es el umbral, más tareas se lanzan y más veces se copian los datos. Ese costo del reparto es el que el informe de paralelización compara contra lo que se ahorra.
 
-// PUNTO 2
+## Punto 2: corrección de energiaSecuencial, masaTotal y centroDeMasaSecuencial
+
+### Notación
+
+Sea $s = (p_0, \ldots, p_{n-1})$ el sistema, con $p_i = (x_i, v_i, m_i)$
+(posición, velocidad y masa). La norma de un vector es
+$\lVert v \rVert = \sqrt{v_x^2 + v_y^2}$. Las operaciones de `Vector2` actúan
+coordenada a coordenada: $(a + b) = (a_x + b_x,\ a_y + b_y)$ y
+$v \ast k = (k\,v_x,\ k\,v_y)$. Todas las sumas son sobre $i = 0, \ldots, n-1$
+y la suma vacía vale $0$.
+
+Estas son las mismas magnitudes del Punto 3 sobre todo el sistema, es decir
+$E(s) = E(0,n)$, $W(s) = W(0,n)$ y $M(s) = M(0,n)$:
+
+$$
+E(s) = \sum_{i} \tfrac{1}{2}\, m_i\, \lVert v_i \rVert^2
+\qquad
+W(s) = \sum_{i} m_i\, x_i
+\qquad
+M(s) = \sum_{i} m_i
+$$
+
+### 1. Especificación
+
+El enunciado pide $\text{energiaSecuencial}(s) = E(s)$,
+$\text{masaTotal}(s) = M(s)$ y
+
+$$
+\text{centroDeMasaSecuencial}(s) = \begin{cases}
+\dfrac{W(s)}{M(s)} & \text{si } M(s) \neq 0 \\
+(0,\ 0) & \text{si } M(s) = 0
+\end{cases}
+$$
+
+### 2. El programa
+
+```scala
+def energiaSecuencial(s: Sistema): Double = {
+  val energias = s.map(particula => 0.5 * particula.masa * particula.vel.norma * particula.vel.norma)
+  energias.sum
+}
+
+def masaTotal(s: Sistema): Double = {
+  val masas = s.map(particula => particula.masa)
+  masas.sum
+}
+
+def centroDeMasaSecuencial(s: Sistema): Vector2 = {
+  val masa = masaTotal(s)
+  if (masa == 0.0) Vector2(0.0, 0.0)
+  else {
+    val ponderadas = s.map(particula => particula.pos * particula.masa)
+    val suma = ponderadas.foldLeft(Vector2(0.0, 0.0))((acumulado, v) => acumulado + v)
+    Vector2(suma.x / masa, suma.y / masa)
+  }
+}
+```
+
+### 3. Tres hechos sobre las operaciones que se usan
+
+**Lema 2.1 (map).** Si $a = (a_0, \ldots, a_{n-1})$ y $f$ es una función,
+entonces `a.map(f)` es $(f(a_0), \ldots, f(a_{n-1}))$: el mismo largo y cada
+resultado en la misma posición. Es la definición de `map`.
+
+**Lema 2.2 (sum).** Para $a = (a_0, \ldots, a_{n-1})$ de números, `a.sum` es
+la suma de todos sus elementos:
+
+$$
+\text{a.sum} = \sum_{i=0}^{n-1} a_i
+$$
+
+_Demostración._ Por inducción sobre $n$. `sum` suma los elementos de a uno,
+de izquierda a derecha, empezando en $0$.
+
+**Caso base:** $n = 0$. No hay elementos y el resultado es el valor inicial
+$0$, que es la suma vacía.
+
+**Caso de inducción:** $n = k + 1$. La suma de $(a_0, \ldots, a_k)$ es la suma
+de los primeros $k$ elementos más $a_k$. Por la hipótesis de inducción (HI),
+la suma de los primeros $k$ elementos es:
+
+$$
+\sum_{i=0}^{k-1} a_i
+$$
+
+y entonces el total es:
+
+$$
+\sum_{i=0}^{k-1} a_i + a_k = \sum_{i=0}^{k} a_i 
+$$
+
+**Lema 2.3 (foldLeft con la suma de vectores).** Sean $w_0, \ldots, w_{n-1}$
+vectores. El `foldLeft` que empieza en `Vector2(0.0, 0.0)` y suma cada vector
+al acumulado da:
+
+$$
+\sum_{i=0}^{n-1} w_i
+$$
+
+_Demostración._ Igual que el Lema 2.2, con el vector $(0, 0)$ como valor
+inicial y la suma coordenada a coordenada.
+
+**Caso base:** $n = 0$. Sin elementos queda $(0, 0)$, la suma vacía.
+
+**Caso de inducción:** $n = k + 1$. El acumulado de $k + 1$ elementos es el
+acumulado de los primeros $k$ más $w_k$. Por la HI, el acumulado de los
+primeros $k$ es:
+
+$$
+\sum_{i=0}^{k-1} w_i
+$$
+
+y entonces el total es:
+
+$$
+\sum_{i=0}^{k-1} w_i + w_k = \sum_{i=0}^{k} w_i 
+$$
+
+### 4. Corrección de cada función
+
+**Teorema 2.1.** Para todo sistema $s$, $\text{energiaSecuencial}(s) = E(s)$.
+
+_Demostración._ Por el Lema 2.1, `energias` es la lista con
+$e_i = 0.5 \cdot m_i \cdot \lVert v_i \rVert \cdot \lVert v_i \rVert = \tfrac12 m_i \lVert v_i \rVert^2$.
+Por el Lema 2.2, `energias.sum` es $\sum_i e_i = E(s)$. Para $s$ vacío el
+resultado es $0 = E(s)$. 
+
+**Teorema 2.2.** Para todo sistema $s$, $\text{masaTotal}(s) = M(s)$.
+
+_Demostración._ Por el Lema 2.1, `masas` es $(m_0, \ldots, m_{n-1})$ y por el
+Lema 2.2 su suma es $\sum_i m_i = M(s)$. 
+
+**Teorema 2.3.** Para todo sistema $s$, $\text{centroDeMasaSecuencial}(s)$ es
+la especificación de la sección 1.
+
+_Demostración._ Por casos sobre `masa`, que por el Teorema 2.2 es $M(s)$.
+
+- **$M(s) = 0$.** El programa devuelve $(0, 0)$, que es lo pedido. Esto incluye
+  el sistema vacío y también un sistema con partículas cuyas masas suman cero.
+  En este caso no se divide, así que nunca se calcula $0/0$.
+- **$M(s) \neq 0$.** Por el Lema 2.1, `ponderadas` es la lista de vectores
+  $w_i = x_i \ast m_i = (m_i x_{i,x},\ m_i x_{i,y})$. Por el Lema 2.3,
+  `suma` es $\sum_i m_i\, x_i = W(s)$. El programa devuelve
+  $(\text{suma}_x / M,\ \text{suma}_y / M) = W(s)/M(s)$, porque dividir el
+  vector entre $M$ es dividir cada coordenada. 
+
+Comprobación con $s = ((0,0),(3,4),2),\ ((4,0),(0,0),2)$:
+
+| Magnitud | Cálculo | Resultado |
+|---|---|:---:|
+| $E(s)$ | $\tfrac12 \cdot 2 \cdot 5^2 + \tfrac12 \cdot 2 \cdot 0^2$ | $25$ |
+| $M(s)$ | $2 + 2$ | $4$ |
+| $W(s)/M(s)$ | $\tfrac14\,\bigl(2\,(0,0) + 2\,(4,0)\bigr) = \tfrac14 (8, 0)$ | $(2,\ 0)$ |
+
+que coincide con los ejemplos del enunciado.
+
+### 5. Sobre los números de punto flotante
+
+Los argumentos anteriores son exactos sobre los reales. En `Double`, sumar en
+otro orden puede cambiar el resultado en las últimas cifras (ver la
+observación sobre los `Double` del Punto 3), por eso las pruebas comparan con
+una tolerancia pequeña. Que la suma sea asociativa sobre los reales es lo que
+permite repartirla en el Punto 3: estas versiones secuenciales son la
+especificación con la que se compara la versión paralela.
 
 
-// PARTICIPANTE 3
 ## Punto 3: corrección de energiaParalela y centroDeMasaParalelo
 
 ### Notación
@@ -583,10 +744,180 @@ es un promedio **ponderado** por las masas de cada mitad. Solo coincide con el p
 - **La suma sí sirve** porque las magnitudes $E$, $W$ y $M$ son sumas sobre los elementos, y una suma sobre una partición es la suma de las sumas de las partes (sección 1). Cada mitad se calcula sin saber nada de la otra y la combinación es exacta.
 - **El promedio no sirve directamente** porque el promedio de un conjunto no se obtiene del promedio de sus partes sin saber cuánto pesa cada una. Además la operación $\mathrm{prom}(x, y) = \tfrac{x+y}{2}$ ni siquiera es asociativa: $\mathrm{prom}(\mathrm{prom}(0,0), 9) = 4.5$ pero $\mathrm{prom}(0, \mathrm{prom}(0, 9)) = 2.25$, así que el resultado dependería de cómo se parta el sistema.
   **Contraejemplo del sistema de tres partículas** (posiciones $(1,2)$, $(5,6)$, $(-3,0)$ y masas $1$, $3$, $4$): el centro de masa es $(0.5, 2.5)$, pero el promedio de los centros de las mitades $\{p_0\}$ y $\{p_1, p_2\}$ es $(\tfrac{5}{7}, \tfrac{16}{7}) \neq (0.5, 2.5)$. Llevando $(W, M)$ y dividiendo una sola vez al final, se obtiene $(4, 20)/8 = (0.5, 2.5)$, el valor correcto.
-// PUNTO 4
+## Punto 4: corrección de trabajo, profundidad y tiempoEstimado
+
+### 1. Especificación
+
+Sea $n \geq 0$ el número de partículas, $u$ el umbral y $p \geq 1$ el número de
+procesadores (en esta sección $p$ es el número de procesadores). Se toma
+$\ell = \max(u, 1)$, porque un umbral menor que uno partiría para siempre un
+tramo de un solo elemento.
+
+`pasoParalelo` parte un tramo de $m$ elementos, con $m \gt \ell$, en dos mitades
+de $\lfloor m/2 \rfloor$ y $\lceil m/2 \rceil$ elementos, y no parte los tramos
+de $\ell$ elementos o menos. Se sigue la mitad mayor, $\lceil m/2 \rceil$. Lo
+que pide el enunciado es:
+
+$$
+\text{Trab}(n) = n
+$$
+
+$$
+\text{Prof}(n, u) = \begin{cases}
+n & \text{si } n \leq \ell \\
+1 + \text{Prof}\bigl(\lceil n/2 \rceil,\ u\bigr) & \text{si } n \gt \ell
+\end{cases}
+$$
+
+$$
+\text{Est}(n, p, u) = \text{Prof}(n, u) + \frac{\text{Trab}(n)}{p}
+$$
+
+### 2. El programa
+
+```scala
+def trabajo(n: Int): Int = n
+
+def profundidad(n: Int, umbral: Int): Int = {
+  val limite = math.max(umbral, 1)
+  if (n <= limite) trabajo(n)
+  else 1 + profundidad((n + 1) / 2, limite)
+}
+
+def tiempoEstimado(n: Int, p: Int, umbral: Int): Double = {
+  val prof = profundidad(n, umbral)
+  val repartido = trabajo(n).toDouble / p
+  prof + repartido
+}
+```
+
+### 3. El trabajo no baja por repartirlo
+
+**Teorema 4.1.** Si un tramo de $n$ elementos se parte según la regla de
+`pasoParalelo`, la suma de los trabajos de sus hojas es $n$.
+
+_Demostración._ Por inducción fuerte sobre $n$.
+
+**Caso base:** $n \leq \ell$. El tramo no se parte, es una sola hoja y cuesta
+$n$.
+
+**Caso de inducción:** $n \gt \ell$. Se parte en $\lfloor n/2 \rfloor$ y
+$\lceil n/2 \rceil$, ambos menores que $n$ porque $n \geq 2$. Por la hipótesis
+de inducción (HI), las hojas de cada mitad suman $\lfloor n/2 \rfloor$ y
+$\lceil n/2 \rceil$, y
+
+$$
+\lfloor n/2 \rfloor + \lceil n/2 \rceil = n
+$$
+
+Repartir no reduce el trabajo, que sigue siendo $\text{Trab}(n) = n$. Solo
+cambia cuánto de ese trabajo se hace al mismo tiempo.
+
+### 4. profundidad cumple la especificación
+
+**Teorema 4.2.** Para todo $n \geq 0$ y todo $u$,
+$\text{profundidad}(n, u) = \text{Prof}(n, u)$.
+
+_Demostración._ Por inducción fuerte sobre $n$. El programa calcula $\ell$ con
+`limite` $= \max(u, 1)$. En el llamado recursivo el parámetro es `limite`, y
+$\max(\text{limite}, 1) = \text{limite}$ porque $\text{limite} \geq 1$, así que
+$\ell$ no cambia entre llamados.
+
+**Caso base:** $n \leq \ell$. El programa devuelve $\text{trabajo}(n) = n$, que
+es $\text{Prof}(n, u)$.
+
+**Caso de inducción:** $n \gt \ell$. El programa devuelve
+$1 + \text{profundidad}((n+1)/2,\ \ell)$ con división entera. Se tiene
+$(n+1)/2 = \lceil n/2 \rceil$: si $n = 2k$, $(2k+1)/2 = k$; si $n = 2k+1$,
+$(2k+2)/2 = k+1$. Como $n \gt \ell \geq 1$, se tiene $n \geq 2$ y entonces
+$\lceil n/2 \rceil \lt n$, así que la HI se aplica al llamado y da
+$\text{Prof}(\lceil n/2 \rceil, u)$. El resultado es
+$1 + \text{Prof}(\lceil n/2 \rceil, u) = \text{Prof}(n, u)$.
+
+La recursión termina porque el tamaño baja en cada llamado y, en algún momento,
+llega a ser $\leq \ell$.
+
+### 5. Forma cerrada
+
+Sea $n_0 = n$ y $n_{j+1} = \lceil n_j / 2 \rceil$. Con la identidad
+$\lceil \lceil n/a \rceil / b \rceil = \lceil n/(ab) \rceil$ para enteros
+positivos, $n_j = \lceil n / 2^j \rceil$. Sea $k$ el número de particiones, es
+decir, el primer $j$ con $n_j \leq \ell$:
+
+$$
+k = \min\{\, j \geq 0 \mid \lceil n/2^j \rceil \leq \ell \,\}
+= \begin{cases} 0 & \text{si } n \leq \ell \\ \lceil \log_2 (n/\ell) \rceil & \text{si } n \gt \ell \end{cases}
+$$
+
+$$
+\text{Prof}(n, u) = k + \lceil n / 2^k \rceil
+$$
+
+La segunda igualdad de $k$ vale porque $\ell$ es entero:
+$\lceil n/2^j \rceil \leq \ell \iff n/2^j \leq \ell \iff 2^j \geq n/\ell$.
+
+Comprobación con los ejemplos del enunciado y con otros propios:
+
+| $n$ | $u$ | $\ell$ | $k$ | $\lceil n/2^k \rceil$ | $\text{Prof}(n, u) = k + \lceil n/2^k \rceil$ |
+|---:|---:|---:|---:|---:|---:|
+| 1024 | 1024 | 1024 | 0 | 1024 | 1024 |
+| 1024 | 512 | 512 | 1 | 512 | 513 |
+| 1024 | 1 | 1 | 10 | 1 | 11 |
+| 1000 | 250 | 250 | 2 | 250 | 252 |
+| 100 | 3 | 3 | 6 | 2 | 8 |
+
+### 6. Propiedades de la profundidad
+
+**Lema 4.1.** $\text{Prof}(n, u) \leq \text{Trab}(n)$ para todo $n \geq 0$.
+
+_Demostración._ Por inducción fuerte. Si $n \leq \ell$, $\text{Prof} = n = \text{Trab}$.
+Si $n \gt \ell$, $n \geq 2$ y $\lceil n/2 \rceil \leq n - 1$, así que por la HI
+
+$$
+\text{Prof}(n, u) = 1 + \text{Prof}(\lceil n/2 \rceil, u) \leq 1 + \lceil n/2 \rceil \leq n 
+$$
+
+**Lema 4.2.** El número de particiones $k(n)$ no decrece cuando $n$ crece.
+
+_Demostración._ $\lceil n/2^j \rceil$ no decrece con $n$. Entonces, si
+$n \leq m$ y $\lceil m/2^j \rceil \leq \ell$, también
+$\lceil n/2^j \rceil \leq \ell$, y el primer $j$ que sirve para $m$ sirve para
+$n$. 
+
+El Lema 4.2 es por lo que se sigue la mitad mayor: es la que más se parte.
+
+**Observación.** $\text{Prof}$ es un modelo: cuenta las particiones de la mitad
+mayor y suma el tramo que queda en ella. No siempre es el camino más largo del
+árbol de `pasoParalelo`, porque la mitad menor puede terminar en una hoja más
+grande. Por ejemplo, con $n = 21$ y $u = 10$ las mitades son 10 y 11. La de 10
+no se parte y cuesta 10, y la de 11 se parte y cuesta
+$\text{Prof}(11, 10) = 1 + 6 = 7$. El modelo da $\text{Prof}(21, 10) = 1 + 7 = 8$,
+y el camino más largo es $1 + 10 = 11$. Para tamaños que se dividen exacto,
+como los del enunciado, las dos cuentas coinciden.
+
+### 7. tiempoEstimado
+
+**Teorema 4.3.** Para $n \geq 0$ y $p \geq 1$,
+$\text{tiempoEstimado}(n, p, u) = \text{Est}(n, p, u)$.
+
+_Demostración._ El programa calcula $\text{prof} = \text{Prof}(n, u)$ por el
+Teorema 4.2 y $\text{repartido} = \text{trabajo}(n).\text{toDouble}/p = \text{Trab}(n)/p$.
+El `toDouble` hace que la división sea real y no entera. Devuelve su suma.
 
 
-// PUNTO 5
+De la fórmula salen dos consecuencias:
+
+- $\text{Est}(n, p, u) \geq \text{Prof}(n, u)$ para todo $p$, porque
+  $\text{Trab}(n)/p \geq 0$. Agregar procesadores nunca baja el tiempo estimado
+  de la profundidad.
+- $\text{Est}(n, 1, u) = \text{Prof}(n, u) + n$, y $\text{Est}$ baja cuando $p$
+  sube.
+
+Comprobación: $\text{Est}(1024, 4, 1) = 11 + 1024/4 = 267$ y
+$\text{Est}(1000, 8, 250) = 252 + 1000/8 = 377$, que coinciden con el enunciado
+y con el caso propio.
+
+
 
 ## Punto 5: medir la aceleración
 
