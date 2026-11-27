@@ -1,135 +1,3 @@
-# Algoritmo Factorial con Recursión de Cola
-
-## Definición del Algoritmo
-
-```Scala
-def factorial(n: Int): BigInt = {
-  @annotation.tailrec
-  def loop(x: Int, acumulador: BigInt): BigInt = {
-    if (x <= 1) acumulador
-    else loop(x - 1, acumulador * x)
-  }
-  loop(n, 1)
-}
-```
-
-* La función `factorial` calcula el factorial de un número `n` utilizando **recursión de cola**.
-* La función interna `loop` es la que hace la recursión:
-
-  * Recibe dos parámetros:
-
-    * `x`: el valor actual decreciente hasta llegar a 1.
-    * `acumulador`: donde se guarda el resultado parcial en cada paso.
-* El decorador `@annotation.tailrec` obliga a que la función sea optimizada como recursión de cola, es decir, **no se acumulan llamados en la pila**.
-
-## Explicación paso a paso
-
-### Caso base
-
-```Scala
-if (x <= 1) acumulador
-```
-
-Cuando `x` llega a `1`, la función retorna directamente el valor acumulado, evitando más llamadas.
-
-### Caso recursivo
-
-```Scala
-loop(x - 1, acumulador * x)
-```
-
-En cada llamada:
-
-* Se reduce el valor de `x` en 1.
-* Se multiplica el acumulador por `x` y se pasa a la siguiente iteración.
-* Como es recursión de cola, la llamada recursiva es la **última instrucción** en ejecutarse, lo que permite a Scala optimizar la pila.
-
----
-
-## Llamados de pila en recursión de cola
-
-Ejemplo:
-
-```Scala
-factorial(5)
-```
-
-### Paso 1: Llamada inicial
-
-```Scala
-loop(5, 1)
-```
-
-### Paso 2: Primera iteración
-
-```Scala
-loop(4, 5)   // acumulador = 1 * 5
-```
-
-### Paso 3: Segunda iteración
-
-```Scala
-loop(3, 20)  // acumulador = 5 * 4
-```
-
-### Paso 4: Tercera iteración
-
-```Scala
-loop(2, 60)  // acumulador = 20 * 3
-```
-
-### Paso 5: Cuarta iteración
-
-```Scala
-loop(1, 120) // acumulador = 60 * 2
-```
-
-### Paso 6: Caso base
-
-```Scala
-return 120
-```
-
----
-
-## Diferencia con recursión normal
-
-* En **recursión normal** cada llamada queda en la pila esperando a que termine la siguiente, lo que puede causar desbordamiento si `n` es muy grande.
-* En **recursión de cola**, el compilador transforma el proceso en un **bucle optimizado**, por lo que no se guarda cada llamada en la pila y el algoritmo puede ejecutarse para valores muy grandes sin problema.
-
----
-
-## Ejemplo de uso
-
-```Scala
-val resultado = factorial(5)
-println(resultado)  // 120
-```
-
-El resultado de `factorial(5)` es `120`.
-
-
-## Diagrama de llamados de pila con recursión de cola
-
-```mermaid
-sequenceDiagram
-    participant Main as factorial(5)
-    participant L1 as loop(5, 1)
-    participant L2 as loop(4, 5)
-    participant L3 as loop(3, 20)
-    participant L4 as loop(2, 60)
-    participant L5 as loop(1, 120)
-
-    Main->>L1: llamada inicial
-    L1->>L2: tail call con (4, 5)
-    L2->>L3: tail call con (3, 20)
-    L3->>L4: tail call con (2, 60)
-    L4->>L5: tail call con (1, 120)
-    L5-->>Main: return 120
-```
-
-
-// PUNTO 1
 ## Punto 1: un paso de la simulación
 
 Un paso de la simulación hace una sola cosa: cada partícula se mueve según su velocidad. Su posición nueva es la anterior más la velocidad por el tiempo `dt`, y su velocidad y su masa se quedan como estaban. Lo interesante es que el cálculo de una partícula no depende de ninguna otra, y por eso el trabajo se puede repartir. Son cuatro funciones: `mover` hace el cálculo de una partícula, `pasoSegmento` lo hace para un tramo del arreglo, `pasoSecuencial` lo hace para todo el sistema y `pasoParalelo` parte el sistema en tramos que se calculan al mismo tiempo.
@@ -148,7 +16,7 @@ Para las trazas usamos un sistema pequeño de cinco partículas, numeradas desde
 
 ```scala
 def mover(p: Particula, dt: Double): Particula =
-  Particula(p.pos + p.vel * dt, p.vel, p.masa)
+   Particula(p.pos + p.vel * dt, p.vel, p.masa)
 ```
 
 Es el cálculo de una sola partícula, y los demás se apoyan en él. Primero multiplica la velocidad por `dt`, después le suma ese desplazamiento a la posición, y arma una partícula nueva con esa posición y con la misma velocidad y la misma masa. No se modifica ninguna partícula: cada llamado devuelve una nueva.
@@ -165,9 +33,9 @@ Traza con la partícula 3 y `dt = 2.0`:
 
 ```scala
 def pasoSegmento(s: Sistema, dt: Double, desde: Int, hasta: Int): Sistema = {
-  val inicio = math.max(desde, 0)
-  val fin = math.min(hasta, s.length)
-  Array.tabulate(math.max(fin - inicio, 0))(i => mover(s(inicio + i), dt))
+   val inicio = math.max(desde, 0)
+   val fin = math.min(hasta, s.length)
+   Array.tabulate(math.max(fin - inicio, 0))(i => mover(s(inicio + i), dt))
 }
 ```
 
@@ -193,7 +61,7 @@ El resultado tiene tres partículas, que son la 1, la 2 y la 3 ya movidas. La 0 
 
 ```scala
 def pasoSecuencial(s: Sistema, dt: Double): Sistema =
-  pasoSegmento(s, dt, 0, s.length)
+   pasoSegmento(s, dt, 0, s.length)
 ```
 
 El paso secuencial es el segmento que cubre todo el sistema, desde la posición 0 hasta el final. Se escribió así a propósito: el enunciado advierte que, si la versión secuencial y la paralela calculan cada tramo de maneras distintas, la diferencia de tiempos mide dos operaciones diferentes y no solo el reparto. Con esta definición, las dos versiones usan exactamente la misma función para calcular cada tramo.
@@ -204,23 +72,23 @@ Traza con `pasoSecuencial(s, 2.0)`: es `pasoSegmento(s, 2.0, 0, 5)`, que calcula
 
 ```scala
 def pasoParalelo(s: Sistema, dt: Double, umbral: Int): Sistema = {
-  val limite = math.max(umbral, 1)
-  // Si todo el sistema cabe en el umbral no se reparte nada: se resuelve igual
-  // que la versión secuencial.
-  if (s.length <= limite) {
-    pasoSegmento(s, dt, 0, s.length)
-  } else {
-    def repartir(desde: Int, hasta: Int): Sistema =
-      if (hasta - desde <= limite) pasoSegmento(s, dt, desde, hasta)
-      else {
-        val medio = desde + (hasta - desde) / 2
-        val (izquierda, derecha) =
-          parallel(repartir(desde, medio), repartir(medio, hasta))
-        izquierda ++ derecha
-      }
+   val limite = math.max(umbral, 1)
+   // Si todo el sistema cabe en el umbral no se reparte nada: se resuelve igual
+   // que la versión secuencial.
+   if (s.length <= limite) {
+      pasoSegmento(s, dt, 0, s.length)
+   } else {
+      def repartir(desde: Int, hasta: Int): Sistema =
+         if (hasta - desde <= limite) pasoSegmento(s, dt, desde, hasta)
+         else {
+            val medio = desde + (hasta - desde) / 2
+            val (izquierda, derecha) =
+               parallel(repartir(desde, medio), repartir(medio, hasta))
+            izquierda ++ derecha
+         }
 
-    repartir(0, s.length)
-  }
+      repartir(0, s.length)
+   }
 }
 ```
 
@@ -300,23 +168,23 @@ Una última observación: cada vez que se parte un tramo se lanza una tarea nuev
 
 ```scala
 def energiaSecuencial(s: Sistema): Double = {
-  val energias = s.map(particula => 0.5 * particula.masa * particula.vel.norma * particula.vel.norma)
-  energias.sum
+   val energias = s.map(particula => 0.5 * particula.masa * particula.vel.norma * particula.vel.norma)
+   energias.sum
 }
 
 def masaTotal(s: Sistema): Double = {
-  val masas = s.map(particula => particula.masa)
-  masas.sum
+   val masas = s.map(particula => particula.masa)
+   masas.sum
 }
 
 def centroDeMasaSecuencial(s: Sistema): Vector2 = {
-  val masa = masaTotal(s)
-  if (masa == 0.0) Vector2(0.0, 0.0)
-  else {
-    val ponderadas = s.map(particula => particula.pos * particula.masa)
-    val suma = ponderadas.foldLeft(Vector2(0.0, 0.0))((acumulado, v) => acumulado + v)
-    Vector2(suma.x / masa, suma.y / masa)
-  }
+   val masa = masaTotal(s)
+   if (masa == 0.0) Vector2(0.0, 0.0)
+   else {
+      val ponderadas = s.map(particula => particula.pos * particula.masa)
+      val suma = ponderadas.foldLeft(Vector2(0.0, 0.0))((acumulado, v) => acumulado + v)
+      Vector2(suma.x / masa, suma.y / masa)
+   }
 }
 ```
 
@@ -377,7 +245,7 @@ Sistema de dos partículas:
 3. `foldLeft` suma los dos vectores, empezando en `(0, 0)`:
 
    | Paso | `acumulado` | `v` | `acumulado + v` |
-   |:---:|---|---|---|
+      |:---:|---|---|---|
    | 1 | (0.0, 0.0) | (0.0, 0.0) | (0.0, 0.0) |
    | 2 | (0.0, 0.0) | (8.0, 0.0) | (8.0, 0.0) |
 
@@ -473,15 +341,15 @@ flowchart TD
 def trabajo(n: Int): Int = n
 
 def profundidad(n: Int, umbral: Int): Int = {
-  val limite = math.max(umbral, 1)
-  if (n <= limite) trabajo(n)
-  else 1 + profundidad((n + 1) / 2, limite)
+   val limite = math.max(umbral, 1)
+   if (n <= limite) trabajo(n)
+   else 1 + profundidad((n + 1) / 2, limite)
 }
 
 def tiempoEstimado(n: Int, p: Int, umbral: Int): Double = {
-  val prof = profundidad(n, umbral)
-  val repartido = trabajo(n).toDouble / p
-  prof + repartido
+   val prof = profundidad(n, umbral)
+   val repartido = trabajo(n).toDouble / p
+   prof + repartido
 }
 ```
 
@@ -496,12 +364,12 @@ ninguna expresión `for`.
 * `profundidad(n, umbral)` cuenta cuántas veces se parte el tramo a la mitad
   hasta que cabe en el umbral, y suma lo que cuesta el tramo que queda sin
   partir. Es el costo de la parte que no se puede hacer al mismo tiempo.
-  * `limite = math.max(umbral, 1)` hace que un umbral menor que uno se trate
-    como uno, igual que `pasoParalelo`.
-  * Si `n <= limite`, el tramo no se parte y cuesta `trabajo(n)`.
-  * Si no, se cuenta una partición (`1 +`) y se sigue con la mitad mayor,
-    `(n + 1) / 2`. La división es entera, así que con `n` impar da la mitad que
-    sobra.
+   * `limite = math.max(umbral, 1)` hace que un umbral menor que uno se trate
+     como uno, igual que `pasoParalelo`.
+   * Si `n <= limite`, el tramo no se parte y cuesta `trabajo(n)`.
+   * Si no, se cuenta una partición (`1 +`) y se sigue con la mitad mayor,
+     `(n + 1) / 2`. La división es entera, así que con `n` impar da la mitad que
+     sobra.
 * `tiempoEstimado(n, p, umbral)` es la profundidad más el trabajo repartido
   entre `p` procesadores. `trabajo(n).toDouble` evita que la división sea entera.
 
@@ -585,7 +453,7 @@ flowchart LR
 * **Muchos procesadores:** `tiempoEstimado` baja al subir `p`, pero nunca por
   debajo de la profundidad.
 
-  
+
 
 ## Punto 5: medir la aceleración
 
@@ -599,7 +467,7 @@ de `App.scala`, que las usa. Los tiempos que salieron están en
 
 ```Scala
 def aceleracion(tSecuencial: Double, tParalelo: Double): Double =
-  tSecuencial / tParalelo
+   tSecuencial / tParalelo
 ```
 
 Traza con `aceleracion(100.0, 25.0)`:
@@ -616,11 +484,11 @@ ahorró.
 
 ```Scala
 def umbralConveniente(s: Sistema, dt: Double, umbrales: List[Int]): Int =
-  if (umbrales.isEmpty) s.length
-  else {
-    val tiempos = umbrales.map(u => (medir(5)(pasoParalelo(s, dt, u)), u))
-    tiempos.minBy(_._1)._2
-  }
+   if (umbrales.isEmpty) s.length
+   else {
+      val tiempos = umbrales.map(u => (medir(5)(pasoParalelo(s, dt, u)), u))
+      tiempos.minBy(_._1)._2
+   }
 ```
 
 Ejemplo con un sistema de 1 000 partículas y `umbrales = List(1000, 100, 10)`.
@@ -630,7 +498,7 @@ Los tiempos de la traza son supuestos, solo para mostrar cómo se combinan:
 |---|---|---|
 | 1 | `umbrales.isEmpty` es falso: se sigue por la rama `else` | |
 | 2 | `map` mide `pasoParalelo(s, dt, 1000)`: no se parte nada | `(0.9, 1000)` |
-| 3 | `map` mide `pasoParalelo(s, dt, 100)`: tres particiones | `(0.4, 100)` |
+| 3 | `map` mide `pasoParalelo(s, dt, 100)`: cuatro particiones | `(0.4, 100)` |
 | 4 | `map` mide `pasoParalelo(s, dt, 10)`: siete particiones | `(0.6, 10)` |
 | 5 | `minBy(_._1)` se queda con la pareja de menor tiempo | `(0.4, 100)` |
 | 6 | `._2` descarta el tiempo y deja el umbral | `100` |
