@@ -325,15 +325,46 @@ $$
 
 ### 2. Corrección de energiaParalela
 
-**Lema (acumular).** Para $a \le i \le b$, acumular(i, acc) devuelve $acc + \sum_{k=i}^{b-1} \tfrac{1}{2} m_k \lVert v_k \rVert^2$.
-*Demostración por inducción sobre $b - i$.* Si $b - i = 0$, entonces $i \ge b$, devuelve $acc$ y la suma vacía vale $0$. Si $b - i = r + 1$, el programa llama a acumular(i+1, acc + ½ mᵢ‖vᵢ‖²), que por hipótesis de inducción devuelve $acc + \tfrac{1}{2} m_i \lVert v_i \rVert^2 + \sum_{k=i+1}^{b-1}(\ldots) = acc + \sum_{k=i}^{b-1}(\ldots)$. $\square$
+**Versión iterativa de acumular (estado, invariante y transformación).** Dentro de cada tramo $[a,b)$, la función auxiliar acumular recorre los índices uno a uno. Es una recursión de cola, así que se argumenta como un programa iterativo:
+
+- **Estado:** $(i, acc)$, con el índice $i$ que falta por sumar y el acumulado $acc$.
+- **Estado inicial:** $s_0 = (a, 0.0)$.
+- **Estado final:** $(i, acc)$ es final si $i \geq b$, y como $i$ solo crece de uno en uno, esto equivale a $i = b$. La respuesta es $acc$.
+- **Invariante:**
+  $$
+  \text{Inv}(i, acc) \equiv a \leq i \leq b \;\land\; acc = \sum_{k=a}^{i-1} \tfrac{1}{2}\, m_k \lVert v_k \rVert^2 = E(a,i)
+  $$
+
+- **Transformación:** $\text{transformar}((i, acc)) = \big(i+1,\; acc + \tfrac{1}{2}\, m_i \lVert v_i \rVert^2\big)$.
+  Demostración:
+
+**1.** $\text{Inv}(s_0)$: el estado inicial cumple la invariante.
+
+$$
+s_0 = (a, 0.0) \implies a \leq a \leq b \;\land\; 0 = E(a,a)
+$$
+
+porque la suma vacía vale $0$.
+
+**2.** La invariante se mantiene: $(s_i \neq s_f \land \text{Inv}(s_i)) \rightarrow \text{Inv}(\text{transformar}(s_i))$. Si $i < b$ y vale la invariante:
+
+1. Primer cambio, $i + 1$: se cumple $a \leq i + 1 \leq b$, porque $i < b$.
+2. Segundo cambio, $acc + \tfrac{1}{2} m_i \lVert v_i \rVert^2 = E(a,i) + \tfrac{1}{2} m_i \lVert v_i \rVert^2 = E(a, i+1)$.
+3. Los dos cambios dejan el estado cumpliendo $\text{Inv}(i+1, acc')$.
+   **3.** $\text{Inv}(s_f) \rightarrow \text{respuesta}(s_f) = E(a,b)$:
+
+$$
+(i = b) \;\land\; acc = E(a,b) \rightarrow acc = E(a,b)
+$$
+
+**4.** Siempre se llega al estado final: en cada paso $i$ aumenta en uno y está acotado por $b$, así que después de $b - a$ pasos se tiene $i = b$.
 
 Luego acumular(a, 0.0) $= E(a,b)$.
 
 **Teorema.** Para todo segmento $[a,b)$ y todo umbral, energiaTramo(a, b) $= E(a,b)$.
 *Demostración por inducción fuerte sobre $\ell = b - a$.*
 
-- **Caso sin partir** ($\ell \le umbral$ o $\ell \le 1$, incluye $\ell = 0$): el programa devuelve acumular(a, 0.0) $= E(a,b)$ por el lema.
+- **Caso sin partir** ($\ell \le umbral$ o $\ell \le 1$, incluye $\ell = 0$): el programa devuelve acumular(a, 0.0) $= E(a,b)$ por la demostración anterior.
 - **Caso de partir** ($\ell > umbral$ y $\ell > 1$): parallel devuelve la pareja formada por energiaTramo(a, medio) y energiaTramo(medio, b); como ambos segmentos son más cortos que $\ell$, por hipótesis de inducción valen $E(a, medio)$ y $E(medio, b)$. El resultado es su suma, que por la sección 1 es $E(a,b)$. $\square$
   Como energiaParalela(s, umbral) es energiaTramo(0, n), se concluye:
 
@@ -349,7 +380,7 @@ $$
 (W_1, M_1) \oplus (W_2, M_2) = (W_1 + W_2,\ M_1 + M_2)
 $$
 
-Igual que en la sección 2, por el lema de acumular y por inducción fuerte sobre $\ell$, parcial(a, b) $= P(a,b)$: en el caso de partir, por la sección 1, $P(a,b) = P(a,medio) \oplus P(medio,b)$, que es lo que combina el programa. Al final el programa divide **una sola vez**:
+Igual que en la sección 2, por la argumentación de acumular (ahora con la pareja $(W, M)$ como acumulado, que se actualiza sumando $m_i\, x_i$ y $m_i$) y por inducción fuerte sobre $\ell$, parcial(a, b) $= P(a,b)$: en el caso de partir, por la sección 1, $P(a,b) = P(a,medio) \oplus P(medio,b)$, que es lo que combina el programa. Al final el programa divide **una sola vez**:
 
 $$
 centroDeMasaParalelo(s, umbral) =
@@ -389,7 +420,6 @@ es un promedio **ponderado** por las masas de cada mitad. Solo coincide con el p
 - **La suma sí sirve** porque las magnitudes $E$, $W$ y $M$ son sumas sobre los elementos, y una suma sobre una partición es la suma de las sumas de las partes (sección 1). Cada mitad se calcula sin saber nada de la otra y la combinación es exacta.
 - **El promedio no sirve directamente** porque el promedio de un conjunto no se obtiene del promedio de sus partes sin saber cuánto pesa cada una. Además la operación $\mathrm{prom}(x, y) = \tfrac{x+y}{2}$ ni siquiera es asociativa: $\mathrm{prom}(\mathrm{prom}(0,0), 9) = 4.5$ pero $\mathrm{prom}(0, \mathrm{prom}(0, 9)) = 2.25$, así que el resultado dependería de cómo se parta el sistema.
   **Contraejemplo del sistema de tres partículas** (posiciones $(1,2)$, $(5,6)$, $(-3,0)$ y masas $1$, $3$, $4$): el centro de masa es $(0.5, 2.5)$, pero el promedio de los centros de las mitades $\{p_0\}$ y $\{p_1, p_2\}$ es $(\tfrac{5}{7}, \tfrac{16}{7}) \neq (0.5, 2.5)$. Llevando $(W, M)$ y dividiendo una sola vez al final, se obtiene $(4, 20)/8 = (0.5, 2.5)$, el valor correcto.
-
 // PUNTO 4
 
 

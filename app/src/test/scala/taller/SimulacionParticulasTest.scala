@@ -287,57 +287,71 @@ class SimulacionParticulasTest extends AnyFunSuite {
     assert(centroDeMasaSecuencial(sinMasa) == Vector2(0, 0))
   }
   // Punto 3  ------------------------------------------------------------------
-    test("propia energiaParalela: tres partículas con tamaño impar") {
-      val tres: Sistema = Array(
-        Particula(Vector2(1, 2), Vector2(3, 4), 1.0),
-        Particula(Vector2(5, 6), Vector2(0, 1), 3.0),
-        Particula(Vector2(-3, 0), Vector2(-1, -1), 4.0))
-      // 12.5 + 1.5 + 4.0 = 18.0, sin importar cómo se parta
-      assert(List(1, 2, 3).forall(u => cerca(energiaParalela(tres, u), 18.0)))
+    test("propia energiaParalela: cuatro partículas con velocidades en ambos ejes") {
+      val cuatro: Sistema = Array(
+        Particula(Vector2(0, 0), Vector2(1, 1), 2.0),    // 0.5 * 2 * 2   = 2.0
+        Particula(Vector2(1, 1), Vector2(-6, 8), 1.0),   // 0.5 * 1 * 100 = 50.0
+        Particula(Vector2(2, 2), Vector2(0, -2), 4.0),   // 0.5 * 4 * 4   = 8.0
+        Particula(Vector2(3, 3), Vector2(2, 0), 0.5))    // 0.5 * 0.5 * 4 = 1.0
+      assert(List(1, 2, 3, 4).forall(u => cerca(energiaParalela(cuatro, u), 61.0)))
     }
 
-    test("propia energiaParalela: umbral cero, negativo o mayor que el sistema da lo mismo que la secuencial") {
-      val esperado = energiaSecuencial(grande)
-      assert(List(-3, 0, 1, 7, 1000, 5000).forall(u =>
-        cerca(energiaParalela(grande, u), esperado)))
+    test("propia energiaParalela: sistema aleatorio de tamaño primo con umbrales que no dividen el tamaño") {
+      val azar = new scala.util.Random(7)
+      val primo: Sistema = Array.fill(997)(Particula(
+        Vector2(azar.nextDouble() * 200 - 100, azar.nextDouble() * 200 - 100),
+        Vector2(azar.nextDouble() * 20 - 10, azar.nextDouble() * 20 - 10),
+        azar.nextDouble() * 30 + 0.1))
+      val esperado = energiaSecuencial(primo)
+      assert(List(2, 5, 11, 250, 997, 2000).forall(u => cerca(energiaParalela(primo, u), esperado)))
     }
 
-    test("propia centroDeMasaParalelo: tres partículas con tamaño impar") {
-      val tres: Sistema = Array(
-        Particula(Vector2(1, 2), Vector2(0, 0), 1.0),    // masa * pos = (1, 2)
-        Particula(Vector2(5, 6), Vector2(0, 0), 3.0),    // masa * pos = (15, 18)
-        Particula(Vector2(-3, 0), Vector2(0, 0), 4.0))   // masa * pos = (-12, 0)
-      // suma ponderada (4, 20) entre masa total 8 = (0.5, 2.5)
-      assert(List(1, 2, 3).forall(u => cerca(centroDeMasaParalelo(tres, u), Vector2(0.5, 2.5))))
-      // el promedio de los centros de las mitades daría (5/7, 16/7), que es otra cosa
-      assert(!cerca(centroDeMasaParalelo(tres, 1), Vector2(5.0 / 7.0, 16.0 / 7.0)))
+    test("propia energiaParalela: las partículas quietas no aportan y las sin masa tampoco") {
+      val mezcla: Sistema = Array(
+        Particula(Vector2(5, 5), Vector2(0, 0), 10.0),     // quieta: 0
+        Particula(Vector2(6, 6), Vector2(100, 100), 0.0),  // sin masa: 0
+        Particula(Vector2(7, 7), Vector2(3, 4), 2.0))      // 0.5 * 2 * 25 = 25
+      assert(List(1, 2, 3).forall(u => cerca(energiaParalela(mezcla, u), 25.0)))
     }
 
-    test("propia centroDeMasaParalelo: una mitad mil veces más pesada que la otra") {
-      val desigual: Sistema =
-        Array(Particula(Vector2(0, 0), Vector2(0, 0), 1000.0)) ++
-          Array.fill(15)(Particula(Vector2(10, 10), Vector2(0, 0), 0.001))
-      val esperado = centroDeMasaSecuencial(desigual)
-      assert(List(1, 2, 4, 8, 100).forall(u =>
-        cerca(centroDeMasaParalelo(desigual, u), esperado)))
+    test("propia centroDeMasaParalelo: cuatro partículas con masas distintas") {
+      val cuatro: Sistema = Array(
+        Particula(Vector2(2, 0), Vector2(0, 0), 1.0),
+        Particula(Vector2(0, 4), Vector2(0, 0), 2.0),
+        Particula(Vector2(-6, -2), Vector2(0, 0), 3.0),
+        Particula(Vector2(8, 8), Vector2(0, 0), 4.0))
+      // suma ponderada = (2 + 0 - 18 + 32, 0 + 8 - 6 + 32) = (16, 34), masa total = 10
+      assert(List(1, 2, 3, 4).forall(u => cerca(centroDeMasaParalelo(cuatro, u), Vector2(1.6, 3.4))))
     }
 
-    test("propia centroDeMasaParalelo: coincide con la secuencial con varios umbrales sobre un sistema grande") {
-      val esperado = centroDeMasaSecuencial(grande)
-      assert(List(-3, 0, 1, 7, 1000, 5000).forall(u =>
-        cerca(centroDeMasaParalelo(grande, u), esperado)))
+    test("propia centroDeMasaParalelo: trasladar todo el sistema traslada el centro de masa") {
+      val azar = new scala.util.Random(21)
+      val base: Sistema = Array.fill(61)(Particula(
+        Vector2(azar.nextDouble() * 50, azar.nextDouble() * 50),
+        Vector2(0, 0),
+        azar.nextDouble() * 9 + 1))
+      val movido: Sistema = base.map(p => Particula(p.pos + Vector2(100, -40), p.vel, p.masa))
+      val c0 = centroDeMasaParalelo(base, 4)
+      assert(cerca(centroDeMasaParalelo(movido, 4), Vector2(c0.x + 100, c0.y - 40)))
     }
 
-    test("propia punto 3: con masa cero el centro es el origen y la energía es cero") {
-      val sinMasa: Sistema = Array.fill(5)(Particula(Vector2(3, 3), Vector2(1, 1), 0.0))
-      assert(centroDeMasaParalelo(sinMasa, 1) == Vector2(0, 0))
-      assert(energiaParalela(sinMasa, 1) == 0.0)
+    test("propia centroDeMasaParalelo: sistema aleatorio de tamaño primo comparado con la secuencial") {
+      val azar = new scala.util.Random(33)
+      val primo: Sistema = Array.fill(503)(Particula(
+        Vector2(azar.nextDouble() * 400 - 200, azar.nextDouble() * 400 - 200),
+        Vector2(0, 0),
+        azar.nextDouble() * 80 + 0.5))
+      val esperado = centroDeMasaSecuencial(primo)
+      assert(List(1, 4, 13, 100, 503, 1000).forall(u => cerca(centroDeMasaParalelo(primo, u), esperado)))
     }
 
-    test("propia punto 3: una sola partícula no se parte, ni siquiera con umbral cero") {
-      val sola: Sistema = Array(Particula(Vector2(5, 6), Vector2(0, 1), 3.0))
-      assert(cerca(centroDeMasaParalelo(sola, 0), Vector2(5, 6)))
-      assert(cerca(energiaParalela(sola, 0), 1.5)) // 0.5 * 3 * 1
+    test("propia centroDeMasaParalelo: las partículas sin masa no mueven el centro aunque estén lejos") {
+      val casiTodasSinMasa: Sistema = Array(
+        Particula(Vector2(1000, 1000), Vector2(0, 0), 0.0),
+        Particula(Vector2(-900, 500), Vector2(0, 0), 0.0),
+        Particula(Vector2(4, 5), Vector2(0, 0), 2.0),
+        Particula(Vector2(77, -77), Vector2(0, 0), 0.0))
+      assert(List(1, 2, 3).forall(u => cerca(centroDeMasaParalelo(casiTodasSinMasa, u), Vector2(4, 5))))
     }
   // Punto 4  ------------------------------------------------------------------
   test("propia profundidad: mil partículas con umbral 250") {
