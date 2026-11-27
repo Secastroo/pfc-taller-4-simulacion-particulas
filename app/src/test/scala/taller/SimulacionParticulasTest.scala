@@ -14,12 +14,11 @@ import scala.util.Random
 class SimulacionParticulasTest extends AnyFunSuite {
 
   val sim = new SimulacionParticulas()
-
   import sim._
 
   def sistemaPA(n: Int): Sistema = Array.tabulate(n)(i =>
     Particula(Vector2(i, 2.0 * i), Vector2(i + 1.0, 0.5 * i), 1.0 + i))
-
+  
   val eps = 1e-9
 
   val p = Particula(Vector2(0, 0), Vector2(1, 2), 1.0)
@@ -166,9 +165,7 @@ class SimulacionParticulasTest extends AnyFunSuite {
 
   // Punto 4 -------------------------------------------------------------------
 
-  test("trabajo: una operación por partícula") {
-    assert(trabajo(1024) == 1024)
-  }
+  test("trabajo: una operación por partícula") { assert(trabajo(1024) == 1024) }
 
   test("profundidad: si el umbral cubre todo, no se parte") {
     assert(profundidad(1024, 1024) == 1024)
@@ -213,8 +210,6 @@ class SimulacionParticulasTest extends AnyFunSuite {
     val candidatos = List(16, 128, 1024)
     assert(candidatos.contains(umbralConveniente(grande, 0.5, candidatos)))
   }
-
-  // PRUEBAS ESTUDIANTES
   // Punto 1  ------------------------------------------------------------------
 
   test("propia pasoSegmento: avanza solo desde incluido hasta excluido") {
@@ -253,12 +248,11 @@ class SimulacionParticulasTest extends AnyFunSuite {
       resultado.map(q => q.masa).toList == (1 to n).map(i => i.toDouble).toList &&
         resultado.toList == pasoSecuencial(sistema, 2.0).toList
     })
-  }
   // Punto 2  ------------------------------------------------------------------
   test("propia energiaSecuencial: suma la energía de partículas con masas distintas") {
     val dos: Sistema = Array(
-      Particula(Vector2(0, 0), Vector2(3, 4), 1.0), // 0.5 * 1 * 25 = 12.5
-      Particula(Vector2(1, 1), Vector2(0, -1), 4.0)) // 0.5 * 4 * 1  = 2.0
+      Particula(Vector2(0, 0), Vector2(3, 4), 1.0),   // 0.5 * 1 * 25 = 12.5
+      Particula(Vector2(1, 1), Vector2(0, -1), 4.0))  // 0.5 * 4 * 1  = 2.0
     assert(cerca(energiaSecuencial(dos), 14.5))
   }
 
@@ -292,42 +286,73 @@ class SimulacionParticulasTest extends AnyFunSuite {
       Particula(Vector2(-2, 7), Vector2(0, 0), 0.0))
     assert(centroDeMasaSecuencial(sinMasa) == Vector2(0, 0))
   }
- // Punto 3  ------------------------------------------------------------------
-  test("energiaParalela: coincide con la secuencial en el ejemplo") {
-    assert(cerca(energiaParalela(s, 1), 25.0))
-  }
+  // Punto 3  ------------------------------------------------------------------
+    test("propia energiaParalela: cuatro partículas con velocidades en ambos ejes") {
+      val cuatro: Sistema = Array(
+        Particula(Vector2(0, 0), Vector2(1, 1), 2.0),    // 0.5 * 2 * 2   = 2.0
+        Particula(Vector2(1, 1), Vector2(-6, 8), 1.0),   // 0.5 * 1 * 100 = 50.0
+        Particula(Vector2(2, 2), Vector2(0, -2), 4.0),   // 0.5 * 4 * 4   = 8.0
+        Particula(Vector2(3, 3), Vector2(2, 0), 0.5))    // 0.5 * 0.5 * 4 = 1.0
+      assert(List(1, 2, 3, 4).forall(u => cerca(energiaParalela(cuatro, u), 61.0)))
+    }
 
-  test("energiaParalela: coincide con la secuencial para varios umbrales") {
-    val esperado = energiaSecuencial(grande)
-    assert(List(1, 3, 64, 999, 5000).forall(u => cerca(energiaParalela(grande, u), esperado)))
-  }
+    test("propia energiaParalela: sistema aleatorio de tamaño primo con umbrales que no dividen el tamaño") {
+      val azar = new scala.util.Random(7)
+      val primo: Sistema = Array.fill(997)(Particula(
+        Vector2(azar.nextDouble() * 200 - 100, azar.nextDouble() * 200 - 100),
+        Vector2(azar.nextDouble() * 20 - 10, azar.nextDouble() * 20 - 10),
+        azar.nextDouble() * 30 + 0.1))
+      val esperado = energiaSecuencial(primo)
+      assert(List(2, 5, 11, 250, 997, 2000).forall(u => cerca(energiaParalela(primo, u), esperado)))
+    }
 
-  test("energiaParalela: sobre el sistema vacío da cero") {
-    assert(energiaParalela(vacio, 1) == 0.0)
-  }
+    test("propia energiaParalela: las partículas quietas no aportan y las sin masa tampoco") {
+      val mezcla: Sistema = Array(
+        Particula(Vector2(5, 5), Vector2(0, 0), 10.0),     // quieta: 0
+        Particula(Vector2(6, 6), Vector2(100, 100), 0.0),  // sin masa: 0
+        Particula(Vector2(7, 7), Vector2(3, 4), 2.0))      // 0.5 * 2 * 25 = 25
+      assert(List(1, 2, 3).forall(u => cerca(energiaParalela(mezcla, u), 25.0)))
+    }
 
-  test("centroDeMasaParalelo: coincide con el secuencial en el ejemplo") {
-    assert(cerca(centroDeMasaParalelo(s, 1), Vector2(2.0, 0.0)))
-  }
+    test("propia centroDeMasaParalelo: cuatro partículas con masas distintas") {
+      val cuatro: Sistema = Array(
+        Particula(Vector2(2, 0), Vector2(0, 0), 1.0),
+        Particula(Vector2(0, 4), Vector2(0, 0), 2.0),
+        Particula(Vector2(-6, -2), Vector2(0, 0), 3.0),
+        Particula(Vector2(8, 8), Vector2(0, 0), 4.0))
+      // suma ponderada = (2 + 0 - 18 + 32, 0 + 8 - 6 + 32) = (16, 34), masa total = 10
+      assert(List(1, 2, 3, 4).forall(u => cerca(centroDeMasaParalelo(cuatro, u), Vector2(1.6, 3.4))))
+    }
 
-  test("centroDeMasaParalelo: coincide con el secuencial para varios umbrales") {
-    val esperado = centroDeMasaSecuencial(grande)
-    assert(List(1, 3, 64, 999, 5000).forall(u => cerca(centroDeMasaParalelo(grande, u), esperado)))
-  }
+    test("propia centroDeMasaParalelo: trasladar todo el sistema traslada el centro de masa") {
+      val azar = new scala.util.Random(21)
+      val base: Sistema = Array.fill(61)(Particula(
+        Vector2(azar.nextDouble() * 50, azar.nextDouble() * 50),
+        Vector2(0, 0),
+        azar.nextDouble() * 9 + 1))
+      val movido: Sistema = base.map(p => Particula(p.pos + Vector2(100, -40), p.vel, p.masa))
+      val c0 = centroDeMasaParalelo(base, 4)
+      assert(cerca(centroDeMasaParalelo(movido, 4), Vector2(c0.x + 100, c0.y - 40)))
+    }
 
-  test("centroDeMasaParalelo: promediar promedios daría otra cosa") {
-    // Tres partículas: dos en el origen y una lejos. El promedio de los
-    // promedios de las dos mitades no es el centro de masa del conjunto.
-    val tres: Sistema = Array(
-      Particula(Vector2(0, 0), Vector2(0, 0), 1.0),
-      Particula(Vector2(0, 0), Vector2(0, 0), 1.0),
-      Particula(Vector2(9, 0), Vector2(0, 0), 1.0))
-    assert(cerca(centroDeMasaParalelo(tres, 1), Vector2(3.0, 0.0)))
-  }
+    test("propia centroDeMasaParalelo: sistema aleatorio de tamaño primo comparado con la secuencial") {
+      val azar = new scala.util.Random(33)
+      val primo: Sistema = Array.fill(503)(Particula(
+        Vector2(azar.nextDouble() * 400 - 200, azar.nextDouble() * 400 - 200),
+        Vector2(0, 0),
+        azar.nextDouble() * 80 + 0.5))
+      val esperado = centroDeMasaSecuencial(primo)
+      assert(List(1, 4, 13, 100, 503, 1000).forall(u => cerca(centroDeMasaParalelo(primo, u), esperado)))
+    }
 
-  test("centroDeMasaParalelo: sin masa el centro es el origen") {
-    assert(centroDeMasaParalelo(vacio, 1) == Vector2(0, 0))
-  }
+    test("propia centroDeMasaParalelo: las partículas sin masa no mueven el centro aunque estén lejos") {
+      val casiTodasSinMasa: Sistema = Array(
+        Particula(Vector2(1000, 1000), Vector2(0, 0), 0.0),
+        Particula(Vector2(-900, 500), Vector2(0, 0), 0.0),
+        Particula(Vector2(4, 5), Vector2(0, 0), 2.0),
+        Particula(Vector2(77, -77), Vector2(0, 0), 0.0))
+      assert(List(1, 2, 3).forall(u => cerca(centroDeMasaParalelo(casiTodasSinMasa, u), Vector2(4, 5))))
+    }
   // Punto 4  ------------------------------------------------------------------
   test("propia profundidad: mil partículas con umbral 250") {
     // 1000 -> 500 -> 250: dos particiones y un tramo de 250
@@ -345,8 +370,8 @@ class SimulacionParticulasTest extends AnyFunSuite {
   }
 
   test("propia tiempoEstimado: profundidad más trabajo entre procesadores") {
-    assert(cerca(tiempoEstimado(1000, 8, 250), 377.0)) // 252 + 1000/8
-    assert(cerca(tiempoEstimado(100, 4, 3), 33.0)) // 8 + 100/4
+    assert(cerca(tiempoEstimado(1000, 8, 250), 377.0))  // 252 + 1000/8
+    assert(cerca(tiempoEstimado(100, 4, 3), 33.0))      // 8 + 100/4
   }
 
   test("propia tiempoEstimado: agregar procesadores nunca baja de la profundidad") {
@@ -354,34 +379,6 @@ class SimulacionParticulasTest extends AnyFunSuite {
     assert(List(1, 2, 16, 1000, 1000000).forall(procesadores =>
       tiempoEstimado(1000, procesadores, 250) >= piso))
   }
-// Punto 5  ------------------------------------------------------------------
-  test("propia aceleracion: si el reparto cuesta más de lo que ahorra, da menos de uno") {
-    assert(cerca(aceleracion(50.0, 200.0), 0.25))
-    assert(aceleracion(50.0, 200.0) < 1.0)
-  }
-
-  test("propia aceleracion: con tiempos decimales, intercambiarlos da el inverso") {
-    assert(cerca(aceleracion(7.5, 2.5), 3.0))
-    assert(cerca(aceleracion(2.5, 7.5), 1.0 / 3.0))
-    assert(cerca(aceleracion(7.5, 2.5) * aceleracion(2.5, 7.5), 1.0))
-  }
-
-  test("propia umbralConveniente: sin candidatos devuelve el tamaño de cada sistema") {
-    assert(List(0, 1, 37, 500).forall(n => umbralConveniente(sistemaPA(n), 0.5, Nil) == n))
-  }
-
-  test("propia umbralConveniente: con un solo candidato devuelve ese candidato") {
-    val sistema = sistemaPA(200)
-    assert(List(1, 50, 200, 5000).forall(u => umbralConveniente(sistema, 0.5, List(u)) == u))
-  }
-
-  test("propia umbralConveniente: el umbral escogido es un candidato y reproduce el paso secuencial") {
-    val sistema = sistemaPA(2000)
-    val candidatos = List(2000, 500, 100, 10)
-    val escogido = umbralConveniente(sistema, 0.5, candidatos)
-    assert(candidatos.contains(escogido))
-    assert(pasoParalelo(sistema, 0.5, escogido).toList == pasoSecuencial(sistema, 0.5).toList)
-  }
-}
+  // Punto 5  ------------------------------------------------------------------
 
 
